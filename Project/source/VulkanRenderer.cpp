@@ -1,4 +1,4 @@
-#include "VulkanRenderer.h"
+ï»¿#include "VulkanRenderer.h"
 #include "FileSystem.h"
 
 
@@ -158,7 +158,7 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	VkCommandBufferBeginInfo beginInfo{};
 	beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 
-	// command buffer ±â·Ï ½ÃÀÛ.
+	// command buffer ê¸°ë¡ ì‹œì‘.
 	if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to begin recording command buffer!");
@@ -264,29 +264,29 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	*/
 	//------------------------------------------------------------------------------------------------------------------------------------------------
 
-	//render pass ¸¦ ½ÃÀÛÇØ¼­ drawingÀ» ½ÃÀÛÇÏ°Ú´Ù´Â ÀÇ¹Ì.
+	//render pass ë¥¼ ì‹œì‘í•´ì„œ drawingì„ ì‹œì‘í•˜ê² ë‹¤ëŠ” ì˜ë¯¸.
 	VkRenderPassBeginInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-	//render pass ÀÚ½Å
+	//render pass ìì‹ 
 	renderPassInfo.renderPass = _renderPass;
-	// ¹ÙÀÎµù ÇÒ attachment
+	// ë°”ì¸ë”© í•  attachment
 	renderPassInfo.framebuffer = _swapchain.framebuffers[imageIndex];
-	// ·»´õ¸µ ¿µ¿ª Å©±â ÁöÁ¤
+	// ë Œë”ë§ ì˜ì—­ í¬ê¸° ì§€ì •
 	renderPassInfo.renderArea.offset = { 0, 0 };
 	renderPassInfo.renderArea.extent = _swapchain.size;
-	//clear color °ª
+	//clear color ê°’
 	VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
 	renderPassInfo.clearValueCount = 1;
 	renderPassInfo.pClearValues = &clearColor;
 
-	// ÀÌÁ¦ render pass°¡ ½ÃÀÛ µÇ¾ú½À´Ï´Ù. commandµéÀÌ ±â·ÏÇÏ´Â ¸ğµç ÇÔ¼ö´Â ±ÙµéÀÌ °¡Áö°í ÀÖ´Â
-	// vkCmd Á¢µÎ»ç·Î ¾Ë¾Æº¼ ¼ö ÀÖ½À´Ï´Ù.
-	// Ã¹ ÆÄ¶ó¹ÌÅÍ : Ç×»ó command¸¦ ±â·Ï ÇÒ command buffer
-	// µÎ¹øÂ° ÆÄ¶ó¹ÌÅÍ : render pass ¼¼ºÎ Ç×¸ñ
-	// ¼¼¹ø¤Š ÆÄ¶ó¹ÌÅÍ : render pass³»¿¡¼­ drawing command°¡ ¾îÄÉ Á¦°øµÇ´ÂÁö Á¦¾î.
+	// ì´ì œ render passê°€ ì‹œì‘ ë˜ì—ˆìŠµë‹ˆë‹¤. commandë“¤ì´ ê¸°ë¡í•˜ëŠ” ëª¨ë“  í•¨ìˆ˜ëŠ” ê·¼ë“¤ì´ ê°€ì§€ê³  ìˆëŠ”
+	// vkCmd ì ‘ë‘ì‚¬ë¡œ ì•Œì•„ë³¼ ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+	// ì²« íŒŒë¼ë¯¸í„° : í•­ìƒ commandë¥¼ ê¸°ë¡ í•  command buffer
+	// ë‘ë²ˆì§¸ íŒŒë¼ë¯¸í„° : render pass ì„¸ë¶€ í•­ëª©
+	// ì„¸ë²ˆì¨° íŒŒë¼ë¯¸í„° : render passë‚´ì—ì„œ drawing commandê°€ ì–´ì¼€ ì œê³µë˜ëŠ”ì§€ ì œì–´.
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	//graphics pipeline ¹ÙÀÎµù
+	//graphics pipeline ë°”ì¸ë”©
 	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphicsPipeline);
 
 	VkViewport viewport{};
@@ -357,16 +357,16 @@ void VulkanRenderer::setImageMemoryBarrier(VkCommandBuffer              commandB
 void VulkanRenderer::drawFrame()
 {
 	/*
-		drawÇÏ±â À§ÇØ ÇØ¾ßÇÏ´Â °Í.
+		drawí•˜ê¸° ìœ„í•´ í•´ì•¼í•˜ëŠ” ê²ƒ.
 
-		1. swap chainÀ¸·Î ºÎÅÍ image È¹µæ
-		2. frame buffer¿¡¼­ ÇØ´ç image¸¦ attachment·Î command buffer ½ÇÇà
-		3. presentationÀ» À§ÇØ swap chain¿¡ image ¹İÈ¯.
+		1. swap chainìœ¼ë¡œ ë¶€í„° image íšë“
+		2. frame bufferì—ì„œ í•´ë‹¹ imageë¥¼ attachmentë¡œ command buffer ì‹¤í–‰
+		3. presentationì„ ìœ„í•´ swap chainì— image ë°˜í™˜.
 	*/
 	vkWaitForFences(_logicalDevice, 1, &_inFlightFence, VK_TRUE, UINT64_MAX);
 	vkResetFences(_logicalDevice, 1, &_inFlightFence);
 
-	//1. swap chainÀ¸·Î ºÎÅÍ image È¹µæ
+	//1. swap chainìœ¼ë¡œ ë¶€í„° image íšë“
 	uint32_t imageIndex;
 	vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
 
@@ -374,51 +374,51 @@ void VulkanRenderer::drawFrame()
 	recordCommandBuffer(_commandBuffer, imageIndex);
 
 
-	// queue submit(Á¦Ãâ) ¹× µ¿±âÈ­
+	// queue submit(ì œì¶œ) ë° ë™ê¸°í™”
 	VkSubmitInfo submitInfo{};
 	submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
 
-	//semaphoreµéÀÌ ½ÇÇàÀÌ ½ÃÀÛµÇ±â Àü¿¡ ±â´Ù·Á¾Æ ÇÏ´ÂÁö, pipelineÀÇ stage(µé)À» ±â´Ù·Á¾ßÇÏ´ÂÁö ÁöÁ¤.
+	//semaphoreë“¤ì´ ì‹¤í–‰ì´ ì‹œì‘ë˜ê¸° ì „ì— ê¸°ë‹¤ë ¤ì•„ í•˜ëŠ”ì§€, pipelineì˜ stage(ë“¤)ì„ ê¸°ë‹¤ë ¤ì•¼í•˜ëŠ”ì§€ ì§€ì •.
 	VkSemaphore waitSemaphores[] = { _imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
 	submitInfo.pWaitDstStageMask = waitStages;
 
-	// 2. frame buffer¿¡¼­ ÇØ´ç image¸¦ attachment·Î command buffer ½ÇÇà
-	// swap chain image¸¦ color attachment·Î ¹ÙÀÎµùÇÏ´Â command buffer Á¦Ãâ.
+	// 2. frame bufferì—ì„œ í•´ë‹¹ imageë¥¼ attachmentë¡œ command buffer ì‹¤í–‰
+	// swap chain imageë¥¼ color attachmentë¡œ ë°”ì¸ë”©í•˜ëŠ” command buffer ì œì¶œ.
 	submitInfo.commandBufferCount = 1;
 	submitInfo.pCommandBuffers = &_commandBuffer;
 
-	//½ÇÇàÀÌ ¿Ï·á µÆÀ»¶§ signalº¸³¾ semaphore.
+	//ì‹¤í–‰ì´ ì™„ë£Œ ëì„ë•Œ signalë³´ë‚¼ semaphore.
 	VkSemaphore signalSemaphores[] = { _renderFinishedSemaphore };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
-	//À§¿¡¼­ ¼ÂÆÃÇß´ø °Íµé·Î graphics queue¿¡ command buffer Á¦Ãâ °¡´É.
+	//ìœ„ì—ì„œ ì…‹íŒ…í–ˆë˜ ê²ƒë“¤ë¡œ graphics queueì— command buffer ì œì¶œ ê°€ëŠ¥.
 	if (vkQueueSubmit(_graphicQueue, 1, &submitInfo, _inFlightFence) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
 
-	// 3. presentationÀ» À§ÇØ swap chain¿¡ image ¹İÈ¯.
-	// frameÀ» drawingÇÏ´Â ¸¶Áö¸· ´Ü°è.
-	// °á°ú¸¦ swap chain¿¡°Ô ´Ù½Ã Á¦ÃâÇÏ¿© ÃÖÁ¾ÀûÀ¸·Î È­¸é¿¡ Ç¥½ÃÇÏ´Â °ÍÀÌ´Ù.
+	// 3. presentationì„ ìœ„í•´ swap chainì— image ë°˜í™˜.
+	// frameì„ drawingí•˜ëŠ” ë§ˆì§€ë§‰ ë‹¨ê³„.
+	// ê²°ê³¼ë¥¼ swap chainì—ê²Œ ë‹¤ì‹œ ì œì¶œí•˜ì—¬ ìµœì¢…ì ìœ¼ë¡œ í™”ë©´ì— í‘œì‹œí•˜ëŠ” ê²ƒì´ë‹¤.
 	VkPresentInfoKHR presentInfo{};
 	presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
 
-	// presentatinÀÌ ¹ß»ıÇÏ±â Àü±îÁö ±â´Ù¸± semaphore ÁöÁ¤
+	// presentatinì´ ë°œìƒí•˜ê¸° ì „ê¹Œì§€ ê¸°ë‹¤ë¦´ semaphore ì§€ì •
 	presentInfo.waitSemaphoreCount = 1;
 	presentInfo.pWaitSemaphores = signalSemaphores;
 
-	//image¸¦ Ç¥½ÃÇÒ swap chainµé°ú °¢ swap chainÀÇ index
+	//imageë¥¼ í‘œì‹œí•  swap chainë“¤ê³¼ ê° swap chainì˜ index
 	VkSwapchainKHR swapChains[] = { _swapchain.handle };
-	presentInfo.swapchainCount = 1; //Ç×»ó 1
+	presentInfo.swapchainCount = 1; //í•­ìƒ 1
 	presentInfo.pSwapchains = swapChains;
 	presentInfo.pImageIndices = &imageIndex;
 
-	// swap chain¿¡°Ô image¸¦ Ç¥½ÃÇÏ¶ó´Â ¿äÃ» Á¦Ãâ!!
+	// swap chainì—ê²Œ imageë¥¼ í‘œì‹œí•˜ë¼ëŠ” ìš”ì²­ ì œì¶œ!!
 	vkQueuePresentKHR(_presentQueue, &presentInfo);
 }
 
@@ -443,7 +443,7 @@ void VulkanRenderer::cleanup()
 
 	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
 
-	//frame buffer´Â image viewµé°ú render pass ÀÌÈÄ¿¡ »èÁ¦ µÇ¾ß ÇÔ.
+	//frame bufferëŠ” image viewë“¤ê³¼ render pass ì´í›„ì— ì‚­ì œ ë˜ì•¼ í•¨.
 	for (auto framebuffers : _swapchain.framebuffers)
 	{
 		vkDestroyFramebuffer(_logicalDevice, framebuffers, nullptr);
@@ -495,8 +495,8 @@ void VulkanRenderer::createSyncObjects()
 
 void VulkanRenderer::createCommandBuffer()
 {
-	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : ½ÇÇàÀ» À§ÇØ queue¿¡ Á¦ÃâµÉ ¼ö ÀÖÁö¸¸ ´Ù¸¥ command buffer¿¡¼­ È£Ãâ x
-	// VK_COMMAND_BUFFER_LEVEL_SECONDARY : Á÷Á¢ ½ÇÇà x, primary command buffer¿¡¼­ È£Ãâ o
+	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : ì‹¤í–‰ì„ ìœ„í•´ queueì— ì œì¶œë  ìˆ˜ ìˆì§€ë§Œ ë‹¤ë¥¸ command bufferì—ì„œ í˜¸ì¶œ x
+	// VK_COMMAND_BUFFER_LEVEL_SECONDARY : ì§ì ‘ ì‹¤í–‰ x, primary command bufferì—ì„œ í˜¸ì¶œ o
 	VkCommandBufferAllocateInfo allocInfo = {
 	  VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,   // VkStructureType          sType
 	  nullptr,                                          // const void             * pNext
@@ -513,17 +513,17 @@ void VulkanRenderer::createCommandBuffer()
 
 void VulkanRenderer::createFramebuffers()
 {
-	// swap chainÀÇ ¸ğµç image¸¦ À§ÇÑ frame bufferµéÀ» ÀúÀåÇÒ ¸â¹ö ¼³Á¤
+	// swap chainì˜ ëª¨ë“  imageë¥¼ ìœ„í•œ frame bufferë“¤ì„ ì €ì¥í•  ë©¤ë²„ ì„¤ì •
 	_swapchain.framebuffers.resize(_swapchain.imageViews.size());
 
-	// imageView °³¼ö¸¸Å­ framebuffer »ı¼º
+	// imageView ê°œìˆ˜ë§Œí¼ framebuffer ìƒì„±
 	for (size_t i = 0; i < _swapchain.imageViews.size(); i++)
 	{
 		VkImageView attachments[] = { _swapchain.imageViews[i] };
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-		//frame buffer°¡ È£È¯µÇ´Â render pass »ç¿ë(µ¿ÀÏÇÑ °³¼ö¿Í Å¸ÀÔÀÇ attachment¸¦ »ç¿ëÇØ¾ß ÇÑ´Ù´Â ÀÇ¹Ì)
+		//frame bufferê°€ í˜¸í™˜ë˜ëŠ” render pass ì‚¬ìš©(ë™ì¼í•œ ê°œìˆ˜ì™€ íƒ€ì…ì˜ attachmentë¥¼ ì‚¬ìš©í•´ì•¼ í•œë‹¤ëŠ” ì˜ë¯¸)
 		framebufferInfo.renderPass = _renderPass;
 		framebufferInfo.attachmentCount = 1;
 		framebufferInfo.pAttachments = attachments;
@@ -540,7 +540,7 @@ void VulkanRenderer::createFramebuffers()
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)
 {
-	//»ç¿ë °¡´ÉÇÑ ¸Ş¸ğ¸® À¯Çü¿¡ ´ëÇÑ Á¤º¸ Äõ¸®
+	//ì‚¬ìš© ê°€ëŠ¥í•œ ë©”ëª¨ë¦¬ ìœ í˜•ì— ëŒ€í•œ ì •ë³´ ì¿¼ë¦¬
 	VkPhysicalDeviceMemoryProperties memProperties;
 	vkGetPhysicalDeviceMemoryProperties(_physicalDevice, &memProperties);
 
@@ -559,31 +559,31 @@ void VulkanRenderer::createVertexBuffer()
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType
 		nullptr,								// next
 		0,										// flag
-		sizeof(_vertices[0]) * _vertices.size(),// buffer byte Å©±â
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		// VkBufferUsageFlags : bufferÀÇ µ¥ÀÌÅÍ°¡ ¾î¶² ¿ëµµ·Î »ç¿ëµÇ´ÂÁö
+		sizeof(_vertices[0]) * _vertices.size(),// buffer byte í¬ê¸°
+		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		// VkBufferUsageFlags : bufferì˜ ë°ì´í„°ê°€ ì–´ë–¤ ìš©ë„ë¡œ ì‚¬ìš©ë˜ëŠ”ì§€
 		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode
 		0,										// queueFamilyIndexCount
 		nullptr,								// pQueueFamilyIndices
 	};
 	
-	// buffer »ı¼º!
+	// buffer ìƒì„±!
 	if (vkCreateBuffer(_logicalDevice, &bufferInfo, nullptr, &_vertexBuffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create vertex buffer!");
 	}
 
-	// »ı¼º µÈ buffer¿¡ ¸Ş¸ğ¸® ÇÒ´çÀ» À§ÇØ memory requirement Äõ¸®
+	// ìƒì„± ëœ bufferì— ë©”ëª¨ë¦¬ í• ë‹¹ì„ ìœ„í•´ memory requirement ì¿¼ë¦¬
 	VkMemoryRequirements memRequirements;
 	vkGetBufferMemoryRequirements(_logicalDevice, _vertexBuffer, &memRequirements);
 
-	// ¸Ş¸ğ¸® ÇÒ´çÇÏ±â À§ÇÑ Á¤º¸ ¼ÂÆÃ
+	// ë©”ëª¨ë¦¬ í• ë‹¹í•˜ê¸° ìœ„í•œ ì •ë³´ ì…‹íŒ…
 	VkMemoryAllocateInfo allocInfo{};
 	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	allocInfo.allocationSize = memRequirements.size;
-	// ±×·¡ÇÈÄ«µå´Â ÇÒ´çÀ» À§ÇÑ ¼­·Î ´Ù¸¥ ¸Ş¸ğ¸® À¯ÇüÀ» Á¦°øÇÒ ¼ö ÀÖÀ½À¸·Î ¿Ã¹Ù¸¥ À¯ÇüÀÇ ¸Ş¸ğ¸®¸¦ Ã£´Â´Ù.
+	// ê·¸ë˜í”½ì¹´ë“œëŠ” í• ë‹¹ì„ ìœ„í•œ ì„œë¡œ ë‹¤ë¥¸ ë©”ëª¨ë¦¬ ìœ í˜•ì„ ì œê³µí•  ìˆ˜ ìˆìŒìœ¼ë¡œ ì˜¬ë°”ë¥¸ ìœ í˜•ì˜ ë©”ëª¨ë¦¬ë¥¼ ì°¾ëŠ”ë‹¤.
 	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
 
-	// ½ÇÁ¦ ¸Ş¸ğ¸® ÇÒ´ç
+	// ì‹¤ì œ ë©”ëª¨ë¦¬ í• ë‹¹
 	if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &_vertexBufferMemory) != VK_SUCCESS) {
 		throw std::runtime_error("failed to allocate vertex buffer memory!");
 	}
@@ -598,7 +598,7 @@ void VulkanRenderer::createVertexBuffer()
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
 {
-	//  VkShaderModule ¿ÀºêÁ§Æ®·Î shader ·¦ÇÎ.
+	//  VkShaderModule ì˜¤ë¸Œì íŠ¸ë¡œ shader ë©í•‘.
 	VkShaderModuleCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	createInfo.codeSize = code.size();
@@ -618,12 +618,12 @@ void VulkanRenderer::createGraphicsPipeline()
 	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag2.spv");
 	//auto computeShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\shader.comp.spv");
 
-	// ÆÄÀÌÇÁ¶óÀÎ¿¡ ÄÚµå¸¦ Àü´ŞÇÏ±â À§ÇØ VkShaderModule ¿ÀºêÁ§Æ®·Î ·¦ÇÎ ÇØ¾ßÇÔ.
+	// íŒŒì´í”„ë¼ì¸ì— ì½”ë“œë¥¼ ì „ë‹¬í•˜ê¸° ìœ„í•´ VkShaderModule ì˜¤ë¸Œì íŠ¸ë¡œ ë©í•‘ í•´ì•¼í•¨.
 	VkShaderModule vertShaderModule = createShaderModule(vertShaderCode);
 	VkShaderModule fragShaderModule = createShaderModule(fragShaderCode);
 	//VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
 
-	// shader¸¦ ½ÇÁ¦ »ç¿ëÇÏ±â À§ÇØ VkPipelineShaderStageCreateInfo¸¦ ÅëÇØ pipeline state·Î ¿¬°á ÇØÁÜ.
+	// shaderë¥¼ ì‹¤ì œ ì‚¬ìš©í•˜ê¸° ìœ„í•´ VkPipelineShaderStageCreateInfoë¥¼ í†µí•´ pipeline stateë¡œ ì—°ê²° í•´ì¤Œ.
 	VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
 	vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -644,72 +644,72 @@ void VulkanRenderer::createGraphicsPipeline()
 
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };// , computeShaderStageInfo};
 
-	/* ¡ÙInput Assetmbler	- raw vertex µ¥ÀÌÅÍ ¼öÁı
-		   Vertex Shader		- ¸ğµç vertex¿¡°Ô ½ÇÇà, model->screen °ø°£À¸·Î
-		   Tessellation			- mesh Ä÷¸®Æ¼¸¦ ¿Ã¸®±â À§ÇØ gemetry ¼¼ºÎÈ­.(º®µ¹, °è´Ü µîÀ» ´ú ÆòÆòÇØº¸ÀÌµµ·Ï »ç¿ë)
-		   Geometry shader		- ¸ğµç primitive¿¡ ´ëÇØ ½ÇÇàµÇ°í ÀÌ¸¦ ¹ö¸®°Å³ª µé¾î¿Â °Í º¸´Ù ´õ ¸¹Àº primitive¸¦ Ãâ·Â °¡´É.
-								(tessellation°ú À¯»çÇÏÁö¸¸ ´õ À¯¿¬, º¸Åë ±ÛÄ«¿¡¼­ ¼º´ÉÀÌ ¾È ÁÁ¾Æ¼­ ¿ä»õ Àß »ç¿ë x, metal¿£ ÀÌ ´Ü°è ¾øÀ½.)
-		   ¡ÙResterization		- primitive¸¦ frament·Î ºĞÇØ. fragment´Â pixel ¿ä¼Ò·Î frame buffer¸¦ Ã¤¿ò.
-								(È­¸é ¹Û frament Æó±â, depth testingÀ¸·Î ÀÎÇÑ fragmentµµ Æó±â)
-		   Fragment Shader		- »ì¾Æ³²Àº fragment·ÎºÎÅÍ ¾î¶² framebuffer¿¡ ¾²¿©ÁúÁö ¾î¶² color, depth¸¦ »ç¿ëÇÒÁö °áÁ¤.
-		   ¡ÙColor blending		- frame buffer¾È¿¡ µ¿ÀÏÇÑ pixel·Î ¸ÅÄªµÇ´Â ¿©·¯ fragment¸¦ È¥È©ÇÑ´Ù.
+	/* â˜†Input Assetmbler	- raw vertex ë°ì´í„° ìˆ˜ì§‘
+		   Vertex Shader		- ëª¨ë“  vertexì—ê²Œ ì‹¤í–‰, model->screen ê³µê°„ìœ¼ë¡œ
+		   Tessellation			- mesh í€„ë¦¬í‹°ë¥¼ ì˜¬ë¦¬ê¸° ìœ„í•´ gemetry ì„¸ë¶€í™”.(ë²½ëŒ, ê³„ë‹¨ ë“±ì„ ëœ í‰í‰í•´ë³´ì´ë„ë¡ ì‚¬ìš©)
+		   Geometry shader		- ëª¨ë“  primitiveì— ëŒ€í•´ ì‹¤í–‰ë˜ê³  ì´ë¥¼ ë²„ë¦¬ê±°ë‚˜ ë“¤ì–´ì˜¨ ê²ƒ ë³´ë‹¤ ë” ë§ì€ primitiveë¥¼ ì¶œë ¥ ê°€ëŠ¥.
+								(tessellationê³¼ ìœ ì‚¬í•˜ì§€ë§Œ ë” ìœ ì—°, ë³´í†µ ê¸€ì¹´ì—ì„œ ì„±ëŠ¥ì´ ì•ˆ ì¢‹ì•„ì„œ ìš”ìƒˆ ì˜ ì‚¬ìš© x, metalì—” ì´ ë‹¨ê³„ ì—†ìŒ.)
+		   â˜†Resterization		- primitiveë¥¼ framentë¡œ ë¶„í•´. fragmentëŠ” pixel ìš”ì†Œë¡œ frame bufferë¥¼ ì±„ì›€.
+								(í™”ë©´ ë°– frament íê¸°, depth testingìœ¼ë¡œ ì¸í•œ fragmentë„ íê¸°)
+		   Fragment Shader		- ì‚´ì•„ë‚¨ì€ fragmentë¡œë¶€í„° ì–´ë–¤ framebufferì— ì“°ì—¬ì§ˆì§€ ì–´ë–¤ color, depthë¥¼ ì‚¬ìš©í• ì§€ ê²°ì •.
+		   â˜†Color blending		- frame bufferì•ˆì— ë™ì¼í•œ pixelë¡œ ë§¤ì¹­ë˜ëŠ” ì—¬ëŸ¬ fragmentë¥¼ í˜¼í™‰í•œë‹¤.
 
-		   ¡ÙÀÌ ºÙÀº ´Ü°è°¡ fixed-function : ÆÄ¶ó¸ŞÅÍ¸¦ ÅëÇØ operationÀ» ¼öÁ¤ÇÒ ¼ö ÀÖ°Ô ÇØÁÖÁö¸¸ ¹Ì¸® Á¤ÀÇ µÊ
-		   ³ª¸ÓÁö´Â programmable.
+		   â˜†ì´ ë¶™ì€ ë‹¨ê³„ê°€ fixed-function : íŒŒë¼ë©”í„°ë¥¼ í†µí•´ operationì„ ìˆ˜ì •í•  ìˆ˜ ìˆê²Œ í•´ì£¼ì§€ë§Œ ë¯¸ë¦¬ ì •ì˜ ë¨
+		   ë‚˜ë¨¸ì§€ëŠ” programmable.
 	*/
 
-	//vertex shader¿¡ Àü´ŞµÇ´Â vertex µ¥ÀÌÅÍÀÇ Æ÷¸ËÀ» ±â¼ú.
+	//vertex shaderì— ì „ë‹¬ë˜ëŠ” vertex ë°ì´í„°ì˜ í¬ë§·ì„ ê¸°ìˆ .
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
 	vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 
 	const VkVertexInputBindingDescription& bindingDescription = Vertex::getBindingDescription();
 	const auto& attributeDescriptions = Vertex::getAttributeDescriptions();
 
-	// µ¥ÀÌÅÍ °£ÀÇ °£°İ°ú per-vertexÀÎÁö per-instanceÀÎÁö ¿©ºÎ °áÁ¤.
+	// ë°ì´í„° ê°„ì˜ ê°„ê²©ê³¼ per-vertexì¸ì§€ per-instanceì¸ì§€ ì—¬ë¶€ ê²°ì •.
 	vertexInputInfo.vertexBindingDescriptionCount = 1;
 	vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
 	vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
 	vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
 
-	// vertex·ÎºÎÅÍ ¾î¶² Á¾·ùÀÇ geometry¸¦ ±×¸± °ÍÀÌ³Ä primitive restart°¡ È°¼ºÈ­ µÇ¾ú´Â°¡?
+	// vertexë¡œë¶€í„° ì–´ë–¤ ì¢…ë¥˜ì˜ geometryë¥¼ ê·¸ë¦´ ê²ƒì´ëƒ primitive restartê°€ í™œì„±í™” ë˜ì—ˆëŠ”ê°€?
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
 	inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 	inputAssembly.primitiveRestartEnable = VK_FALSE;
 
-	// viewport : image¿¡¼­ frame buffer·Î¼­ÀÇ À§Ä¡?Å©±â? transformationÀ» Á¤ÀÇ.
-	// scissor : ½ÇÁ¦·Î screen¿¡ pixelÀ» ±×¸®´Â ¿µ¿ª
+	// viewport : imageì—ì„œ frame bufferë¡œì„œì˜ ìœ„ì¹˜?í¬ê¸°? transformationì„ ì •ì˜.
+	// scissor : ì‹¤ì œë¡œ screenì— pixelì„ ê·¸ë¦¬ëŠ” ì˜ì—­
 	VkPipelineViewportStateCreateInfo viewportState{};
 	viewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewportState.viewportCount = 1;
 	viewportState.scissorCount = 1;
 
-	// vertex shaderÀÇ geometry¸¦ ¹Ş¾Æ fragment shader·Î »öÄ¥ÇÒ fragment·Î º¯È¯.
-	// ¿©±â¼­ depth testing, face culiing, scissor test ¼öÇà.
+	// vertex shaderì˜ geometryë¥¼ ë°›ì•„ fragment shaderë¡œ ìƒ‰ì¹ í•  fragmentë¡œ ë³€í™˜.
+	// ì—¬ê¸°ì„œ depth testing, face culiing, scissor test ìˆ˜í–‰.
 	VkPipelineRasterizationStateCreateInfo rasterizer{};
 	rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-	// true¶ó¸é near/far planeÀ» ¹ş¾î³­ fragment´Â Æó±âµÇ´Â ´ë½Å clampµÊ.
-	// ÀÌ ¼³Á¤Àº shadow map°°Àº Æ¯º°Ç× »óÈ²¿¡¼­ À¯¿ë. (GPU feature È°¼ºÈ­ ÇÊ¿ä)
+	// trueë¼ë©´ near/far planeì„ ë²—ì–´ë‚œ fragmentëŠ” íê¸°ë˜ëŠ” ëŒ€ì‹  clampë¨.
+	// ì´ ì„¤ì •ì€ shadow mapê°™ì€ íŠ¹ë³„í•­ ìƒí™©ì—ì„œ ìœ ìš©. (GPU feature í™œì„±í™” í•„ìš”)
 	rasterizer.depthClampEnable = VK_FALSE;
-	// ture½Ã geometry°¡ rasteraizer ´Ü°è ÁøÇà x 
+	// tureì‹œ geometryê°€ rasteraizer ë‹¨ê³„ ì§„í–‰ x 
 	rasterizer.rasterizerDiscardEnable = VK_FALSE;
-	// fragment°¡ »ı¼ºµÇ´Â ¹æ¹ı °áÁ¤ 
-	// FILL : fragment·Î Ã¤¿ò / LINE : ¿§Áö¸¦ ¼±À¸·Î ±×¸² / POINT : vertex¸¦ Á¡À¸·Î ±×¸².
+	// fragmentê°€ ìƒì„±ë˜ëŠ” ë°©ë²• ê²°ì • 
+	// FILL : fragmentë¡œ ì±„ì›€ / LINE : ì—£ì§€ë¥¼ ì„ ìœ¼ë¡œ ê·¸ë¦¼ / POINT : vertexë¥¼ ì ìœ¼ë¡œ ê·¸ë¦¼.
 	rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-	// fragment ¼±ÀÇ µÎ²² 
+	// fragment ì„ ì˜ ë‘ê»˜ 
 	rasterizer.lineWidth = 1.0f;
-	// face culling ¿ìÇü
+	// face culling ìš°í˜•
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
 	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
-	// multi sampling ±¸¼º. anti-aliasingÀ» ¼öÇàÇÏ±â À§ÇÑ ¹æ¹ı Áß ÇÏ³ª.		
+	// multi sampling êµ¬ì„±. anti-aliasingì„ ìˆ˜í–‰í•˜ê¸° ìœ„í•œ ë°©ë²• ì¤‘ í•˜ë‚˜.		
 	VkPipelineMultisampleStateCreateInfo multisampling{};
 	multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	multisampling.sampleShadingEnable = VK_FALSE;
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	// depth¿Í stencil buffer¸¦ »ç¿ëÇÏ±â À§ÇØ ±¸¼º.
+	// depthì™€ stencil bufferë¥¼ ì‚¬ìš©í•˜ê¸° ìœ„í•´ êµ¬ì„±.
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 	colorBlendAttachment.blendEnable = VK_FALSE;
@@ -726,7 +726,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	colorBlending.blendConstants[2] = 0.0f;
 	colorBlending.blendConstants[3] = 0.0f;
 
-	// pipeline Àç»ı¼º ¾øÀÌ º¯°æÇÒ ¼ö ÀÖ´Â °Íµé( viewport, scissor, line widht, blend constantµî )ÀÌ ÀÖ´Âµ¥ ¿øÇÑ´Ù¸é ±×µéÀ» Ã¤¿ö³Ö¾î¾ßÇÔ.
+	// pipeline ì¬ìƒì„± ì—†ì´ ë³€ê²½í•  ìˆ˜ ìˆëŠ” ê²ƒë“¤( viewport, scissor, line widht, blend constantë“± )ì´ ìˆëŠ”ë° ì›í•œë‹¤ë©´ ê·¸ë“¤ì„ ì±„ì›Œë„£ì–´ì•¼í•¨.
 	std::vector<VkDynamicState> dynamicStates =
 	{
 		VK_DYNAMIC_STATE_VIEWPORT,
@@ -738,8 +738,8 @@ void VulkanRenderer::createGraphicsPipeline()
 	dynamicState.pDynamicStates = dynamicStates.data();
 
 
-	//shader¿¡¼­ »ç¿ëµÇ´Â uniform°ªÀº global°ªÀ¸·Î dynamic state ¿Í À¯»çÇÏ°Ô shader Àç»ı¼º ¾øÀÌ drawing ½ÃÁ¡¿¡¼­ ¹Ù²Ü ¼ö ÀÖ´Ù.
-	// ÀÌ uniformÀº VkPipelineLayout ¿ÀºêÁ§Æ® »ı¼ºÀ» ÅëÇØ pipelineÀ» »ı¼ºÇÏ´Â µ¿¾È ÁöÁ¤µÈ´Ù.
+	//shaderì—ì„œ ì‚¬ìš©ë˜ëŠ” uniformê°’ì€ globalê°’ìœ¼ë¡œ dynamic state ì™€ ìœ ì‚¬í•˜ê²Œ shader ì¬ìƒì„± ì—†ì´ drawing ì‹œì ì—ì„œ ë°”ê¿€ ìˆ˜ ìˆë‹¤.
+	// ì´ uniformì€ VkPipelineLayout ì˜¤ë¸Œì íŠ¸ ìƒì„±ì„ í†µí•´ pipelineì„ ìƒì„±í•˜ëŠ” ë™ì•ˆ ì§€ì •ëœë‹¤.
 	// Descriptor set with storage image
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
 		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,  // VkStructureType                  sType
@@ -758,13 +758,13 @@ void VulkanRenderer::createGraphicsPipeline()
 	}
 
 	/*
-	ÀÌÀü¿¡ ¸¸µç ¸ğµç ±¸Á¶Ã¼¿Í ¿ÀºêÁ§Æ®¸¦ Á¶ÇÕÇÏ¿© µåµğ¾î graphics pipeline »ı¼º °¡´É!
-		- shader stages :shader module »ı¼º
-		- Fixed-function state : pipe lineÀÇ fixed-funtionÀ» Á¤ÀÇ
-		- pieline layout : shader¿¡ ÀÇÇØ ÂüÁ¶µÇ´Â uniform°ú push º¯¼ö´Â draw time¿¡ ¾÷µ« °¡´É
-		- render pass :pipeline ´Ü°è¿¡ ÂüÁ¶ÇÏ´Â attachment¿Í ±× »ç¿ë¹ı
+	ì´ì „ì— ë§Œë“  ëª¨ë“  êµ¬ì¡°ì²´ì™€ ì˜¤ë¸Œì íŠ¸ë¥¼ ì¡°í•©í•˜ì—¬ ë“œë””ì–´ graphics pipeline ìƒì„± ê°€ëŠ¥!
+		- shader stages :shader module ìƒì„±
+		- Fixed-function state : pipe lineì˜ fixed-funtionì„ ì •ì˜
+		- pieline layout : shaderì— ì˜í•´ ì°¸ì¡°ë˜ëŠ” uniformê³¼ push ë³€ìˆ˜ëŠ” draw timeì— ì—…ëƒ ê°€ëŠ¥
+		- render pass :pipeline ë‹¨ê³„ì— ì°¸ì¡°í•˜ëŠ” attachmentì™€ ê·¸ ì‚¬ìš©ë²•
 
-	ÀÌ ¸ğµç °ÍµéÀÌ Á¶ÇÕµÇ¾î  graphics pipelineÀÇ ±â´ÉÀ» ¿ÏÀüÈ÷ Á¤ÀÇÇÕ´Ï´Ù.
+	ì´ ëª¨ë“  ê²ƒë“¤ì´ ì¡°í•©ë˜ì–´  graphics pipelineì˜ ê¸°ëŠ¥ì„ ì™„ì „íˆ ì •ì˜í•©ë‹ˆë‹¤.
 	*/
 	VkGraphicsPipelineCreateInfo pipelineInfo{};
 	pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -799,40 +799,40 @@ void VulkanRenderer::createGraphicsPipeline()
 	//	 nullptr                           // const VkSampler    * pImmutableSamplers
 	//};
 
-	VkPipelineLayoutCreateInfo computePipelineLayoutInfo = {
-	  VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,          // VkStructureType                  sType
-	  nullptr,                                                // const void                     * pNext
-	  0,                                                      // VkPipelineLayoutCreateFlags      flags
-	  0,//static_cast<uint32_t>(descriptor_set_layouts.size()),   // uint32_t                         setLayoutCount
-	  nullptr,//descriptor_set_layouts.data(),                          // const VkDescriptorSetLayout    * pSetLayouts
-	  0,//static_cast<uint32_t>(push_constant_ranges.size()),     // uint32_t                         pushConstantRangeCount
-	  nullptr//push_constant_ranges.data()                             // const VkPushConstantRange      * pPushConstantRanges
-	};
+	//VkPipelineLayoutCreateInfo computePipelineLayoutInfo = {
+	//  VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,          // VkStructureType                  sType
+	//  nullptr,                                                // const void                     * pNext
+	//  0,                                                      // VkPipelineLayoutCreateFlags      flags
+	//  0,//static_cast<uint32_t>(descriptor_set_layouts.size()),   // uint32_t                         setLayoutCount
+	//  nullptr,//descriptor_set_layouts.data(),                          // const VkDescriptorSetLayout    * pSetLayouts
+	//  0,//static_cast<uint32_t>(push_constant_ranges.size()),     // uint32_t                         pushConstantRangeCount
+	//  nullptr//push_constant_ranges.data()                             // const VkPushConstantRange      * pPushConstantRanges
+	//};
 
-	if (VK_SUCCESS != vkCreatePipelineLayout(_logicalDevice, &computePipelineLayoutInfo, nullptr, &_computePipelineLayout))
-	{
-		throw std::runtime_error("Could not create pipeline layout.");
+	//if (VK_SUCCESS != vkCreatePipelineLayout(_logicalDevice, &computePipelineLayoutInfo, nullptr, &_computePipelineLayout))
+	//{
+	//	throw std::runtime_error("Could not create pipeline layout.");
 
-	}
+	//}
 
-	VkComputePipelineCreateInfo computePipelineInfo = {
-		VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, // VkStructureType                    sType
-		nullptr,                                        // const void                       * pNext
-		0,												// VkPipelineCreateFlags              flags
-		shaderStages[2],								// VkPipelineShaderStageCreateInfo    stage
-		_computePipelineLayout,                         // VkPipelineLayout                   layout
-		VK_NULL_HANDLE,									// VkPipeline                         basePipelineHandle
-		-1                                              // int32_t                            basePipelineIndex
-	};
+	//VkComputePipelineCreateInfo computePipelineInfo = {
+	//	VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO, // VkStructureType                    sType
+	//	nullptr,                                        // const void                       * pNext
+	//	0,												// VkPipelineCreateFlags              flags
+	//	shaderStages[2],								// VkPipelineShaderStageCreateInfo    stage
+	//	_computePipelineLayout,                         // VkPipelineLayout                   layout
+	//	VK_NULL_HANDLE,									// VkPipeline                         basePipelineHandle
+	//	-1                                              // int32_t                            basePipelineIndex
+	//};
 
-	if (vkCreateComputePipelines(_logicalDevice, VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &_computePipeline) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create pipeline layout!");
-	}
+	//if (vkCreateComputePipelines(_logicalDevice, VK_NULL_HANDLE, 1, &computePipelineInfo, nullptr, &_computePipeline) != VK_SUCCESS)
+	//{
+	//	throw std::runtime_error("failed to create pipeline layout!");
+	//}
 
 	//-----------------------------------------------------------------------------------------------------------------------------------------------
 
-	// pipeline »ı¼º ÈÄ Áö¿ö¾ß ÇÔ.
+	// pipeline ìƒì„± í›„ ì§€ì›Œì•¼ í•¨.
 	vkDestroyShaderModule(_logicalDevice, fragShaderModule, nullptr);
 	vkDestroyShaderModule(_logicalDevice, vertShaderModule, nullptr);
 	//vkDestroyShaderModule(_logicalDevice, computeShaderModule, nullptr);
@@ -840,41 +840,41 @@ void VulkanRenderer::createGraphicsPipeline()
 
 void VulkanRenderer::createRenderPass()
 {
-	//swap chain ÀÌ¹ÌÁöµé Áß ÇÏ³ª¸¦ ³ªÅ¸³»´Â color buffer attachment
-	// color(»ö»ó) buffer(¹öÆÛ) attachment(Ã·ºÎ¹°)
+	//swap chain ì´ë¯¸ì§€ë“¤ ì¤‘ í•˜ë‚˜ë¥¼ ë‚˜íƒ€ë‚´ëŠ” color buffer attachment
+	// color(ìƒ‰ìƒ) buffer(ë²„í¼) attachment(ì²¨ë¶€ë¬¼)
 	//https://www.notion.so/VkAttachmentDescription-Manual-Page-774a0dde223c41939b99b4b4f04349c9
 	VkAttachmentDescription colorAttachment{};
-	//color attachmentÀÇ formatÀº swap chain imageµéÀÇ format°ú µ¿ÀÏ.
+	//color attachmentì˜ formatì€ swap chain imageë“¤ì˜ formatê³¼ ë™ì¼.
 	colorAttachment.format = _swapchain.format;
-	// multisampling °ü·Ã ÀÛ¾÷ ¼ÂÆÃ( ¾ÆÁ÷ ¾È ÇÔÀ¸·Î 1)
+	// multisampling ê´€ë ¨ ì‘ì—… ì…‹íŒ…( ì•„ì§ ì•ˆ í•¨ìœ¼ë¡œ 1)
 	colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
 
-	//attatchmnetÀÇ µ¥ÀÌÅÍ°¡ ·»´õ¸µ Àü/ÈÄ¿¡ ¹«¾ùÀ» ÇÒ °ÍÀÎÁö °áÁ¤
-	// LOAD : ±âÁ¸ attachment À¯Áö / CLEAR : Áö¿ì±â / DONT_CARE : ±âÁ¸ ÄÁÅÙÃ÷ undefined
+	//attatchmnetì˜ ë°ì´í„°ê°€ ë Œë”ë§ ì „/í›„ì— ë¬´ì—‡ì„ í•  ê²ƒì¸ì§€ ê²°ì •
+	// LOAD : ê¸°ì¡´ attachment ìœ ì§€ / CLEAR : ì§€ìš°ê¸° / DONT_CARE : ê¸°ì¡´ ì»¨í…ì¸  undefined
 	colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-	// STORE : ·»´õ¸µµÈ ÄÁÅÙÃ÷ ÀúÀå ÈÄ ÀĞÀ» ¼ö ÀÖÀ½ / DONT_CARE : ·»´õ¸µ ÈÄ undefined
+	// STORE : ë Œë”ë§ëœ ì»¨í…ì¸  ì €ì¥ í›„ ì½ì„ ìˆ˜ ìˆìŒ / DONT_CARE : ë Œë”ë§ í›„ undefined
 	colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	//stencil °ü·Ã ¼³Á¤ (stencil ¹öÆÛ·Î fragment Æó±â½Ã »ç¿ë. ¿©±â¼± »ç¿ëx)
+	//stencil ê´€ë ¨ ì„¤ì • (stencil ë²„í¼ë¡œ fragment íê¸°ì‹œ ì‚¬ìš©. ì—¬ê¸°ì„  ì‚¬ìš©x)
 	colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 
-	//VulkanÀÇ texture¿Í frame buffer´Â Æ¯¼º pixel formatÀÎ VkImage ¿ÀºêÁ§Æ®·Î Ç¥Çö µÊ.
+	//Vulkanì˜ textureì™€ frame bufferëŠ” íŠ¹ì„± pixel formatì¸ VkImage ì˜¤ë¸Œì íŠ¸ë¡œ í‘œí˜„ ë¨.
 
-	// render pass¸¦ ½ÃÀÛÇÏ±â Àü »óÅÂÀÇ image layout »óÅÂ ÁöÁ¤
-	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;//ÀÌÀü ÀÌ¹ÌÁö°¡ ¾î¶² layoutÀÌ¾ú´ø »ó°ü¾ø´Ü ¶æ.
-	// render pass°¡ ³¡³µÀ» ¶§ ÀÚµ¿ÀûÀ¸·Î ÀüÈ¯µÉ layoutÀ» ÁöÁ¤.
-	// ·»´õ¸µ ÈÄ¿¡ swap chainÀ» ÅëÇØ image¸¦ presentation ÇÒ °ÍÀÌ±â ¶§¹®¿¡ ¾Æ·¡¿Í °°ÀÌ ¼³Á¤.
+	// render passë¥¼ ì‹œì‘í•˜ê¸° ì „ ìƒíƒœì˜ image layout ìƒíƒœ ì§€ì •
+	colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;//ì´ì „ ì´ë¯¸ì§€ê°€ ì–´ë–¤ layoutì´ì—ˆë˜ ìƒê´€ì—†ë‹¨ ëœ».
+	// render passê°€ ëë‚¬ì„ ë•Œ ìë™ì ìœ¼ë¡œ ì „í™˜ë  layoutì„ ì§€ì •.
+	// ë Œë”ë§ í›„ì— swap chainì„ í†µí•´ imageë¥¼ presentation í•  ê²ƒì´ê¸° ë•Œë¬¸ì— ì•„ë˜ì™€ ê°™ì´ ì„¤ì •.
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
-	//sub pass´Â ÇÏ³ª ÀÌ»óÀÇ attachment¸¦ ÂüÁ¶ÇÔ.
+	//sub passëŠ” í•˜ë‚˜ ì´ìƒì˜ attachmentë¥¼ ì°¸ì¡°í•¨.
 	VkAttachmentReference colorAttachmentRef{};
 	colorAttachmentRef.attachment = 0;
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-	// ´ÜÀÏ render pass´Â ¿©·¯°³ÀÇ sub pass·Î ±¸¼ºµÇ´Âµ¥ sub pass´Â 
-	// ÀÌÀü passÀÇ frame buffer ³»¿ë¿¡ ÀÇÁ¸ÇÏ´Â ÈÄ¼Ó ·»´õ¸µ ÀÛ¾÷ÀÔ´Ï´Ù. (ex) post-processing)
+	// ë‹¨ì¼ render passëŠ” ì—¬ëŸ¬ê°œì˜ sub passë¡œ êµ¬ì„±ë˜ëŠ”ë° sub passëŠ” 
+	// ì´ì „ passì˜ frame buffer ë‚´ìš©ì— ì˜ì¡´í•˜ëŠ” í›„ì† ë Œë”ë§ ì‘ì—…ì…ë‹ˆë‹¤. (ex) post-processing)
 
-	// Áö±İÀº »ï°¢Çü ÇÏ³ª ¶ç¿ï°Å´Ï±î ´ÜÀÏ sub pass À¯Áö.
+	// ì§€ê¸ˆì€ ì‚¼ê°í˜• í•˜ë‚˜ ë„ìš¸ê±°ë‹ˆê¹Œ ë‹¨ì¼ sub pass ìœ ì§€.
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = 1;
@@ -888,7 +888,7 @@ void VulkanRenderer::createRenderPass()
 	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 
-	// attachment ¹è¿­°ú sub pass¸¦ »ç¿ëÇÏ¿© VkRenderPassCreateInfo ±¸Á¶Ã¼¸¦ Ã¤¿ì°í »ı¼º °¡´É!
+	// attachment ë°°ì—´ê³¼ sub passë¥¼ ì‚¬ìš©í•˜ì—¬ VkRenderPassCreateInfo êµ¬ì¡°ì²´ë¥¼ ì±„ìš°ê³  ìƒì„± ê°€ëŠ¥!
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 	renderPassInfo.attachmentCount = 1;
@@ -907,10 +907,10 @@ void VulkanRenderer::createRenderPass()
 void VulkanRenderer::createSwapchain()
 {
 	/*
-		Swap ChainÀº À©µµ¿ì surface¿Í È£È¯µÇÁö ¾ÊÀ» ¼ö ÀÖÀ½À¸·Î ¸¹Àº ¼¼ºÎ Ç×¸ñ¿¡ ´ëÇÑ ÁúÀÇ°¡ ÇÊ¿äÇÕ´Ï´Ù.
-		1. Basic Surface capabilites(swap chainÀÇ ÃÖ´ë/ÃÖ¼Ò ÀÌ¹ÌÁö °³¼ö, ÀÌ¹ÌÁö w/h ÃÖ´ë ÃÖ¼Ò °ª)
+		Swap Chainì€ ìœˆë„ìš° surfaceì™€ í˜¸í™˜ë˜ì§€ ì•Šì„ ìˆ˜ ìˆìŒìœ¼ë¡œ ë§ì€ ì„¸ë¶€ í•­ëª©ì— ëŒ€í•œ ì§ˆì˜ê°€ í•„ìš”í•©ë‹ˆë‹¤.
+		1. Basic Surface capabilites(swap chainì˜ ìµœëŒ€/ìµœì†Œ ì´ë¯¸ì§€ ê°œìˆ˜, ì´ë¯¸ì§€ w/h ìµœëŒ€ ìµœì†Œ ê°’)
 		2. surface format(pixel format, color space)
-		3. »ç¿ë °¡´ÉÇÑ presentation ¸ğµå
+		3. ì‚¬ìš© ê°€ëŠ¥í•œ presentation ëª¨ë“œ
 	*/
 	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(_physicalDevice);
 
@@ -921,20 +921,20 @@ void VulkanRenderer::createSwapchain()
 
 	// 1. surface format(color depth)
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-	// 2. presentation mode(ÀÌ¹ÌÁö¸¦ È­¸é¿¡ ½º¿ÍÇÎÇÏ±â À§ÇÑ Á¶°Ç)
+	// 2. presentation mode(ì´ë¯¸ì§€ë¥¼ í™”ë©´ì— ìŠ¤ì™€í•‘í•˜ê¸° ìœ„í•œ ì¡°ê±´)
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-	// 3. swap extent(swap chainÀÇ ÀÌ¹ÌÁö ÇØ»óµµ)
+	// 3. swap extent(swap chainì˜ ì´ë¯¸ì§€ í•´ìƒë„)
 	VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
 
-	// swap chainÀÌ »ç¿ëÇÒ ÀÌ¹ÌÁö °³¼öµµ Á¤ÇÑ´Ù. + 1 Àº ÀÏ´Ü ÃÖ¼Ò 1°³ ÀÌ»óÀÇ ÀÌ¹ÌÁö¸¦ ¿äÃ»ÇÏ°Ú´Ù´Â ÀÇ¹ÌÀÌ´Ù.
+	// swap chainì´ ì‚¬ìš©í•  ì´ë¯¸ì§€ ê°œìˆ˜ë„ ì •í•œë‹¤. + 1 ì€ ì¼ë‹¨ ìµœì†Œ 1ê°œ ì´ìƒì˜ ì´ë¯¸ì§€ë¥¼ ìš”ì²­í•˜ê² ë‹¤ëŠ” ì˜ë¯¸ì´ë‹¤.
 	uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
 	if (swapChainSupport.capabilities.maxImageCount > 0 && imageCount > swapChainSupport.capabilities.maxImageCount)
 	{
 		imageCount = swapChainSupport.capabilities.maxImageCount;
 	}
 
-	//ÀÌÁ¦ Vulkan ¿ÀºêÁ§Æ® °ü·Ê´ë·Î swap chainÀÇ ±¸Á¶Ã¼¸¦ Ã¤¿öº¸ÀÚ.
+	//ì´ì œ Vulkan ì˜¤ë¸Œì íŠ¸ ê´€ë¡€ëŒ€ë¡œ swap chainì˜ êµ¬ì¡°ì²´ë¥¼ ì±„ì›Œë³´ì.
 	VkSwapchainCreateInfoKHR createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
 	createInfo.surface = _surface;
@@ -942,61 +942,61 @@ void VulkanRenderer::createSwapchain()
 	createInfo.imageFormat = surfaceFormat.format;
 	createInfo.imageColorSpace = surfaceFormat.colorSpace;
 	createInfo.imageExtent = extent;
-	// ÀÌ¹ÌÁö¸¦ ±¸¼ºÇÏ´Â layerÀÇ ¾ç (3D APPÀ» °³¹ßÇÏÁö ¾Ê´Â ÀÌ»ó Ç×»ó 1ÀÓ.)
+	// ì´ë¯¸ì§€ë¥¼ êµ¬ì„±í•˜ëŠ” layerì˜ ì–‘ (3D APPì„ ê°œë°œí•˜ì§€ ì•ŠëŠ” ì´ìƒ í•­ìƒ 1ì„.)
 	createInfo.imageArrayLayers = 1;
 	createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
 	QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
 	uint32_t queueFamilyIndices[] = { indices.graphic.familyIndex, indices.present.familyIndex };
 
-	// Graphic queue family¿Í Presentation queue family°¡ ´Ù¸¥ °æ¿ì graphic queue¿¡¼­ 
-	// swap chain ÀÌ¹ÌÁö, presentation queue¿¡ ±× ÀÌ¹ÌÁö¸¦ Á¦ÃâÇÏ°Ô µÊ.
+	// Graphic queue familyì™€ Presentation queue familyê°€ ë‹¤ë¥¸ ê²½ìš° graphic queueì—ì„œ 
+	// swap chain ì´ë¯¸ì§€, presentation queueì— ê·¸ ì´ë¯¸ì§€ë¥¼ ì œì¶œí•˜ê²Œ ë¨.
 
-	// Queue family°£¿¡ »ç¿ëµÇ´Â S.C ÀÌ¹ÌÁö ÇÚµé¸µ ¹æ¹ıÀ» ÁöÁ¤ÇÔ.
+	// Queue familyê°„ì— ì‚¬ìš©ë˜ëŠ” S.C ì´ë¯¸ì§€ í•¸ë“¤ë§ ë°©ë²•ì„ ì§€ì •í•¨.
 	if (indices.graphic.familyIndex != indices.present.familyIndex)
 	{
-		// ¸í½ÃÀûÀÎ ¼ÒÀ¯±Ç Àü¼Û ¾øÀÌ ÀÌ¹ÌÁö´Â ¿©·¯ Queue Family¿¡¼­ »ç¿ë °¡´É.
+		// ëª…ì‹œì ì¸ ì†Œìœ ê¶Œ ì „ì†¡ ì—†ì´ ì´ë¯¸ì§€ëŠ” ì—¬ëŸ¬ Queue Familyì—ì„œ ì‚¬ìš© ê°€ëŠ¥.
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
 		createInfo.pQueueFamilyIndices = queueFamilyIndices;
 	}
 	else
 	{
-		// ÀÌ¹ÌÁö¸¦ ÇÑ Queue family¿¡¼­ ¼ÒÀ¯ÇÏ°í ´Ù¸¥ Q.F¿¡¼­ »ç¿ëÇÏ·Á´Â °æ¿ì ¸í½ÃÀûÀ¸·Î ¼ÒÀ¯±Ç Àü¼Û.
-		// ÀÌ ¿É¼ÇÀº ÃÖ»óÀÇ ¼º´ÉÀ» Á¦°ø ÇÔ.
+		// ì´ë¯¸ì§€ë¥¼ í•œ Queue familyì—ì„œ ì†Œìœ í•˜ê³  ë‹¤ë¥¸ Q.Fì—ì„œ ì‚¬ìš©í•˜ë ¤ëŠ” ê²½ìš° ëª…ì‹œì ìœ¼ë¡œ ì†Œìœ ê¶Œ ì „ì†¡.
+		// ì´ ì˜µì…˜ì€ ìµœìƒì˜ ì„±ëŠ¥ì„ ì œê³µ í•¨.
 		createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	}
 
-	// swap chainÀÇ trasnform( ex: 90µµ È¸Àü.. ¼öÆò ÇÃ¸³ µî). ±×´ë·Î µÑ°Å¸é current ÇÏ¸é µÊ.
+	// swap chainì˜ trasnform( ex: 90ë„ íšŒì „.. ìˆ˜í‰ í”Œë¦½ ë“±). ê·¸ëŒ€ë¡œ ë‘˜ê±°ë©´ current í•˜ë©´ ë¨.
 	createInfo.preTransform = swapChainSupport.capabilities.currentTransform;
-	//À©µµ¿ì ½Ã½ºÅÛ¿¡¼­ ´Ù¸¥ À©µµ¿ì¿Í ºí·»µù½Ã ¾ËÆÄ Ã¤³Î »ç¿ëÇÒ °Ç°¡¸¦ ÁöÁ¤.
-	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;// ¾ËÆÄ Ã¤³Î ¹«½Ã
+	//ìœˆë„ìš° ì‹œìŠ¤í…œì—ì„œ ë‹¤ë¥¸ ìœˆë„ìš°ì™€ ë¸”ë Œë”©ì‹œ ì•ŒíŒŒ ì±„ë„ ì‚¬ìš©í•  ê±´ê°€ë¥¼ ì§€ì •.
+	createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;// ì•ŒíŒŒ ì±„ë„ ë¬´ì‹œ
 	createInfo.presentMode = presentMode;
-	// °¡·ÁÁø ÇÈ¼¿À» ½Å°æ¾²Áö ¾Ê°Ú´Ù´Â ¶æ
+	// ê°€ë ¤ì§„ í”½ì…€ì„ ì‹ ê²½ì“°ì§€ ì•Šê² ë‹¤ëŠ” ëœ»
 	createInfo.clipped = VK_TRUE;
 
-	// À©µµ¿ì ¸®»çÀÌÂ¡ÇÒ ¶§ µî ÀÌÀü swap chainÀ» ÂüÁ¶ÇÏ±â À§ÇØ ÀÌ ÇÊµå¸¦ ÁöÁ¤ÇØ¾ß ÇÔ.
-	// º¹ÀâÇÔÀ¸·Î ÀÌ°ÍÀº ÀÏ´Ü null·Î µÒ.(¾øÀ» ½Ã Ç×»ó »õ·Î »ı¼º)
+	// ìœˆë„ìš° ë¦¬ì‚¬ì´ì§•í•  ë•Œ ë“± ì´ì „ swap chainì„ ì°¸ì¡°í•˜ê¸° ìœ„í•´ ì´ í•„ë“œë¥¼ ì§€ì •í•´ì•¼ í•¨.
+	// ë³µì¡í•¨ìœ¼ë¡œ ì´ê²ƒì€ ì¼ë‹¨ nullë¡œ ë‘ .(ì—†ì„ ì‹œ í•­ìƒ ìƒˆë¡œ ìƒì„±)
 	createInfo.oldSwapchain = VK_NULL_HANDLE;
 
-	// ¸ğµÎ ÁöÁ¤ÇßÀ¸´Ï swap chain create!
+	// ëª¨ë‘ ì§€ì •í–ˆìœ¼ë‹ˆ swap chain create!
 	if (vkCreateSwapchainKHR(_logicalDevice, &createInfo, nullptr, &_swapchain.handle) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create swap chain!");
 	}
 
-	// ¸ÕÀú imageCount¸¦ ÅëÇØ ÀÌ¹ÌÁö °³¼ö¸¦ ÁúÀÇÇÑ µÚ
+	// ë¨¼ì € imageCountë¥¼ í†µí•´ ì´ë¯¸ì§€ ê°œìˆ˜ë¥¼ ì§ˆì˜í•œ ë’¤
 	vkGetSwapchainImagesKHR(_logicalDevice, _swapchain.handle, &imageCount, nullptr);
-	// ÄÁÅ×ÀÌ³Ê Å©±â¸¦ Á¶Á¤ÇÏ°í
+	// ì»¨í…Œì´ë„ˆ í¬ê¸°ë¥¼ ì¡°ì •í•˜ê³ 
 	_swapchain.images.resize(imageCount);
-	// ¸¶Áö¸·À¸·Î ÀÌ¸¦ ´Ù½Ã È£ÃâÇÏ¿© ÇÚµéÀ» ¾ò¾î¿Â´Ù. ÀÌ´Â ¾ó¸¶µçÁö ´õ ¸¹Àº ¼öÀÇ swapChainÀ» »ı¼ºÇÒ ¼ö ÀÖ±â ‹š¹®ÀÌ´Ù.
+	// ë§ˆì§€ë§‰ìœ¼ë¡œ ì´ë¥¼ ë‹¤ì‹œ í˜¸ì¶œí•˜ì—¬ í•¸ë“¤ì„ ì–»ì–´ì˜¨ë‹¤. ì´ëŠ” ì–¼ë§ˆë“ ì§€ ë” ë§ì€ ìˆ˜ì˜ swapChainì„ ìƒì„±í•  ìˆ˜ ìˆê¸° ë–„ë¬¸ì´ë‹¤.
 	vkGetSwapchainImagesKHR(_logicalDevice, _swapchain.handle, &imageCount, _swapchain.images.data());
 
 	_swapchain.format = surfaceFormat.format;
 	_swapchain.size = extent;
 
 	//--------------------ImageView
-	// swap chain °³¼ö¿¡ ¸Â°Ô imageViewsµµ ¸®»çÀÌÁî
+	// swap chain ê°œìˆ˜ì— ë§ê²Œ imageViewsë„ ë¦¬ì‚¬ì´ì¦ˆ
 	_swapchain.imageViews.resize(_swapchain.images.size());
 
 
@@ -1007,19 +1007,19 @@ void VulkanRenderer::createSwapchain()
 		createInfo.image = _swapchain.images[i];
 		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 		createInfo.format = _swapchain.format;
-		// color channelÀ» ¼¯À» ¼ö ÀÖµµ·Ï ÇØÁÜ. (´Ü»ö ÅØ½ºÃ³¸¦ ¾´´Ù¸é ¸ğµç channelÀ» red·Î ¸ÅÇÎÇÒ ¼öµµ ÀÖÀ½.)
+		// color channelì„ ì„ì„ ìˆ˜ ìˆë„ë¡ í•´ì¤Œ. (ë‹¨ìƒ‰ í…ìŠ¤ì²˜ë¥¼ ì“´ë‹¤ë©´ ëª¨ë“  channelì„ redë¡œ ë§¤í•‘í•  ìˆ˜ë„ ìˆìŒ.)
 		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
 		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		// ÀÌ¹ÌÁöÀÇ ¿ëµµ, ¾î¶² ºÎºĞÀ» ¾×¼¼½º ÇØ¾ßÇÏ´ÂÁö ±â¼ú
+		// ì´ë¯¸ì§€ì˜ ìš©ë„, ì–´ë–¤ ë¶€ë¶„ì„ ì•¡ì„¸ìŠ¤ í•´ì•¼í•˜ëŠ”ì§€ ê¸°ìˆ 
 		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		createInfo.subresourceRange.baseMipLevel = 0;
 		createInfo.subresourceRange.levelCount = 1;
 		createInfo.subresourceRange.baseArrayLayer = 0;
 		createInfo.subresourceRange.layerCount = 1;
 
-		// ´Ù ¼³Á¤ ÇßÀ¸´Ï image View create!
+		// ë‹¤ ì„¤ì • í–ˆìœ¼ë‹ˆ image View create!
 		if (vkCreateImageView(_logicalDevice, &createInfo, nullptr, &_swapchain.imageViews[i]) != VK_SUCCESS)
 		{
 			throw std::runtime_error("failed to create image views!");
@@ -1034,10 +1034,10 @@ void VulkanRenderer::createLogicalDevice()
 	std::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
 	std::set<uint32_t> uniqueQueueFamilies = { indices.graphic.familyIndex, indices.present.familyIndex };// , indices.compute.familyIndex};
 
-	float queuePriority = 1.0f; // 0.0 ~ 1.0 »çÀÌ¿¡¼­ »ç¿ë °¡´É. ¿ì¼± ¼øÀ§ ÇÒ´ç.
+	float queuePriority = 1.0f; // 0.0 ~ 1.0 ì‚¬ì´ì—ì„œ ì‚¬ìš© ê°€ëŠ¥. ìš°ì„  ìˆœìœ„ í• ë‹¹.
 	for (uint32_t queueFamily : uniqueQueueFamilies)
 	{
-		//Queue Family¿¡¼­ ¿ì¸®°¡ ¿øÇÏ´Â queueÀÇ °³¼ö¸¦ ±â¼ú.
+		//Queue Familyì—ì„œ ìš°ë¦¬ê°€ ì›í•˜ëŠ” queueì˜ ê°œìˆ˜ë¥¼ ê¸°ìˆ .
 		VkDeviceQueueCreateInfo queueCreateInfo{};
 		queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
 		queueCreateInfo.queueFamilyIndex = queueFamily;
@@ -1048,7 +1048,7 @@ void VulkanRenderer::createLogicalDevice()
 
 	VkPhysicalDeviceFeatures deviceFeatures{};
 
-	// VkDeviceQueueCreateInfo, VkPhysicalDeviceFeatures¸¦ ÅëÇØ VkDeviceCreateInfo »ı¼º °¡´É.
+	// VkDeviceQueueCreateInfo, VkPhysicalDeviceFeaturesë¥¼ í†µí•´ VkDeviceCreateInfo ìƒì„± ê°€ëŠ¥.
 	VkDeviceCreateInfo createInfo{};
 	createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
 	createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
@@ -1071,8 +1071,8 @@ void VulkanRenderer::createLogicalDevice()
 		throw std::runtime_error("failed to create logical device!");
 	}
 
-	// °¢ queue family¿¡¼­ queue ÇÚµéÀ» Ã£¾Æ¿Â´Ù. 
-	// ( logical device, queue family, queue index, queue handle ÀúÀåÇÒ Æ÷ÀÎÅÍ)
+	// ê° queue familyì—ì„œ queue í•¸ë“¤ì„ ì°¾ì•„ì˜¨ë‹¤. 
+	// ( logical device, queue family, queue index, queue handle ì €ì¥í•  í¬ì¸í„°)
 	vkGetDeviceQueue(_logicalDevice, indices.graphic.familyIndex, 0, &_graphicQueue);
 	vkGetDeviceQueue(_logicalDevice, indices.present.familyIndex, 0, &_presentQueue);
 	//vkGetDeviceQueue(_logicalDevice, indices.compute.familyIndex, 0, &_computeQueue);
@@ -1080,8 +1080,8 @@ void VulkanRenderer::createLogicalDevice()
 
 void VulkanRenderer::createSurface()
 {
-	// surface ? ·»´õ¸µµÈ ÀÌ¹ÌÁö¸¦ Ç¥½ÃÇÒ °÷
-	//°¢ ÇÃ·§Æûº° ´Ù¸¥ ±¸ÇöÀ» ÅëÇØ Vulkan surface »ı¼º
+	// surface ? ë Œë”ë§ëœ ì´ë¯¸ì§€ë¥¼ í‘œì‹œí•  ê³³
+	//ê° í”Œë«í¼ë³„ ë‹¤ë¥¸ êµ¬í˜„ì„ í†µí•´ Vulkan surface ìƒì„±
 	if (glfwCreateWindowSurface(_instance, _window, nullptr, &_surface) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create window surface!");
@@ -1092,8 +1092,8 @@ SwapChainSupportDetails VulkanRenderer::querySwapChainSupport(VkPhysicalDevice p
 {
 	SwapChainSupportDetails details;
 
-	//1. Basic Surface capabilites(swap chainÀÇ ÃÖ´ë / ÃÖ¼Ò ÀÌ¹ÌÁö °³¼ö, ÀÌ¹ÌÁö w / h ÃÖ´ë ÃÖ¼Ò °ª)
-	// ÁöÁ¤µÈ Physical Device(GPU)¿Í À©µµ¿ì Surface¸¦ »ç¿ëÇÏ¿© Áö¿øµÇ´Â capability¸¦ °áÁ¤ÇÔ.
+	//1. Basic Surface capabilites(swap chainì˜ ìµœëŒ€ / ìµœì†Œ ì´ë¯¸ì§€ ê°œìˆ˜, ì´ë¯¸ì§€ w / h ìµœëŒ€ ìµœì†Œ ê°’)
+	// ì§€ì •ëœ Physical Device(GPU)ì™€ ìœˆë„ìš° Surfaceë¥¼ ì‚¬ìš©í•˜ì—¬ ì§€ì›ë˜ëŠ” capabilityë¥¼ ê²°ì •í•¨.
 	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physicalDevice, _surface, &details.capabilities);
 
 	//2. surface format(pixel format, color space)
@@ -1106,7 +1106,7 @@ SwapChainSupportDetails VulkanRenderer::querySwapChainSupport(VkPhysicalDevice p
 		vkGetPhysicalDeviceSurfaceFormatsKHR(physicalDevice, _surface, &formatCount, details.formats.data());
 	}
 
-	//3. »ç¿ë °¡´ÉÇÑ presentation ¸ğµå
+	//3. ì‚¬ìš© ê°€ëŠ¥í•œ presentation ëª¨ë“œ
 	uint32_t presentModeCount;
 	vkGetPhysicalDeviceSurfacePresentModesKHR(physicalDevice, _surface, &presentModeCount, nullptr);
 
@@ -1201,11 +1201,11 @@ void VulkanRenderer::createInstance()
 		createInfo.ppEnabledLayerNames = validationLayers.data();
 
 		debugCreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-		// ÀÌº¥Æ® ½É°¢µµ ÁöÁ¤
+		// ì´ë²¤íŠ¸ ì‹¬ê°ë„ ì§€ì •
 		debugCreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		// Äİ¹éÀÌ È£ÃâµÇµµ·Ï ÇÏ´Â ÀÌº¥Æ® À¯Çü ÁöÁ¤
+		// ì½œë°±ì´ í˜¸ì¶œë˜ë„ë¡ í•˜ëŠ” ì´ë²¤íŠ¸ ìœ í˜• ì§€ì •
 		debugCreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-		//Äİ¹é ÇÔ¼ö
+		//ì½œë°± í•¨ìˆ˜
 		debugCreateInfo.pfnUserCallback = debugCallback;
 
 		createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*)&debugCreateInfo;
@@ -1226,7 +1226,7 @@ const QueueFamilyIndices& VulkanRenderer::findQueueFamilies(VkPhysicalDevice dev
 	QueueFamilyIndices indices;
 
 	uint32_t queueFamilyCount = 0;
-	// queue family ¸®½ºÆ®¸¦ ¾ò¾î¿È
+	// queue family ë¦¬ìŠ¤íŠ¸ë¥¼ ì–»ì–´ì˜´
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
 
 	std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
@@ -1235,7 +1235,7 @@ const QueueFamilyIndices& VulkanRenderer::findQueueFamilies(VkPhysicalDevice dev
 	int i = 0;
 	for (const auto& queueFamily : queueFamilies)
 	{
-		//VK_QUEUE_GRAPHICS_BIT ¸¦ Áö¿øÇÏ´Â ÃÖ¼Ò ÇÏ³ªÀÇ queue family¸¦ Ã£¾Æ¾ß ÇÔ.
+		//VK_QUEUE_GRAPHICS_BIT ë¥¼ ì§€ì›í•˜ëŠ” ìµœì†Œ í•˜ë‚˜ì˜ queue familyë¥¼ ì°¾ì•„ì•¼ í•¨.
 		if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
 			indices.graphic.familyIndex = i;
 
@@ -1268,11 +1268,11 @@ void VulkanRenderer::createCommandPool()
 		throw std::runtime_error("_physicalDevice is NULL!");
 	}
 
-	// command buffer´Â queueÁß ÇÏ³ª¿¡ Á¦ÃâÇÔÀ¸·Î½á ½ÇÇà µÊ. °í·Î queue¸¦ °¡Á® ¿È.
+	// command bufferëŠ” queueì¤‘ í•˜ë‚˜ì— ì œì¶œí•¨ìœ¼ë¡œì¨ ì‹¤í–‰ ë¨. ê³ ë¡œ queueë¥¼ ê°€ì ¸ ì˜´.
 	QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
 
-	// VK_COMMAND_POOL_CREATE_TRANSIENT_BIT : »õ·Î¿î command°¡ ¸Å¿ì ÀÚÁÖ ±â·Ï.
-	// VK_COMMNAD_POOL_CREATE_RESET_COMMAND_BUFFER_BIT : command buffer°¡ °³º°ÀûÀ¸·Î Àç±â·Ï µÉ ¼ö ÀÖÀ½.
+	// VK_COMMAND_POOL_CREATE_TRANSIENT_BIT : ìƒˆë¡œìš´ commandê°€ ë§¤ìš° ìì£¼ ê¸°ë¡.
+	// VK_COMMNAD_POOL_CREATE_RESET_COMMAND_BUFFER_BIT : command bufferê°€ ê°œë³„ì ìœ¼ë¡œ ì¬ê¸°ë¡ ë  ìˆ˜ ìˆìŒ.
 	VkCommandPoolCreateInfo poolInfo = {
 	  VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,		// VkStructureType              sType
 	  nullptr,											// const void                 * pNext

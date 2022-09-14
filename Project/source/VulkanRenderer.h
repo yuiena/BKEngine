@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -84,7 +84,7 @@ struct Vertex
 	glm::vec3 color;
 
 	/**
-	 * @brief vertex µ¥ÀÌÅÍ¸¦ ÇÏ³ªÀÇ ¹è¿­¿¡ Æ÷ÀåÇÑ´Ù.
+	 * @brief vertex ë°ì´í„°ë¥¼ í•˜ë‚˜ì˜ ë°°ì—´ì— í¬ì¥í•œë‹¤.
 	 */
 	static VkVertexInputBindingDescription getBindingDescription()
 	{
@@ -94,22 +94,22 @@ struct Vertex
 			VK_VERTEX_INPUT_RATE_VERTEX,	// inputRate
 		};
 		//inputRate 
-		// VK_VERTEX_INPUT_RATE_VERTEX : vertex µÚÀÇ ´ÙÀ½ µ¥ÀÌÅÍ Ç×¸ñÀ¸·Î ÀÌµ¿
-		// VK_VERTEX_INPUT_RATE_INSTANCE : °¢ instance ÈÄ ´ÙÀ½ µ¥ÀÌÅÍ Ç×¸ñÀ¸·Î ÀÌµ¿ (instance »ç¿ë½Ã »ç¿ë!)
+		// VK_VERTEX_INPUT_RATE_VERTEX : vertex ë’¤ì˜ ë‹¤ìŒ ë°ì´í„° í•­ëª©ìœ¼ë¡œ ì´ë™
+		// VK_VERTEX_INPUT_RATE_INSTANCE : ê° instance í›„ ë‹¤ìŒ ë°ì´í„° í•­ëª©ìœ¼ë¡œ ì´ë™ (instance ì‚¬ìš©ì‹œ ì‚¬ìš©!)
 		return bindingDescription;
 	}
 
 	/**
-	 * @brief À§ÀÇ binding description¿¡¼­ ¸¸µé¾îÁø vertex µ¥ÀÌÅÍ Ã»Å©¿¡¼­ vertex attribute ÃßÃâ!
+	 * @brief ìœ„ì˜ binding descriptionì—ì„œ ë§Œë“¤ì–´ì§„ vertex ë°ì´í„° ì²­í¬ì—ì„œ vertex attribute ì¶”ì¶œ!
 	 */
 	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
 	{
 		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
 
-		attributeDescriptions[0].binding = 0;						// vertexº° µ¥ÀÌÅÍÀÇ binding index
-		attributeDescriptions[0].location = 0;						// vertex shader¿¡¼­ inputÀÇ location index
-		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;	// attribute dataÀÇ byteÅ©±â¸¦ ¾Ï½ÃÀûÀ¸·Î Á¤ÀÇ
-		attributeDescriptions[0].offset = offsetof(Vertex, pos);	// vertexº° µ¥ÀÌÅÍ ½ÃÀÛ ÀÌÈÄ byte offset ÁöÁ¤.
+		attributeDescriptions[0].binding = 0;						// vertexë³„ ë°ì´í„°ì˜ binding index
+		attributeDescriptions[0].location = 0;						// vertex shaderì—ì„œ inputì˜ location index
+		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;	// attribute dataì˜ byteí¬ê¸°ë¥¼ ì•”ì‹œì ìœ¼ë¡œ ì •ì˜
+		attributeDescriptions[0].offset = offsetof(Vertex, pos);	// vertexë³„ ë°ì´í„° ì‹œì‘ ì´í›„ byte offset ì§€ì •.
 
 		attributeDescriptions[1].binding = 0;
 		attributeDescriptions[1].location = 1;
