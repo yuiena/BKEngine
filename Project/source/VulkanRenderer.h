@@ -120,9 +120,6 @@ struct Vertex
 	}
 };
 
-
-
-
 class VulkanRenderer
 {
 public:
@@ -134,29 +131,81 @@ public:
 		cleanup();
 	}
 
-
 private:
+	/**
+	 * @brief window 초기화
+	 */
 	void initWindow();
+
+	/**
+	 * @brief vulkan 초기화
+	 */
 	void initVulkan();
+
+	/**
+	 * @brief
+	 */
 	void createInstance();
+
+	/**
+	 * @brief 렌더링된 이미지를 표시할 곳(surface)를 생성한다.
+	 */
 	void createSurface();
+
+	/**
+	 * @brief
+	 */
 	void createCommandPool();
+
+	/**
+	 * @brief Physical Device(GPU) 선택
+	 */
 	void pickPhysicalDevice();
+
+	/**
+	 * @brief hysical Device와 통신하기 위한 logical device 생성
+	 */
 	void createLogicalDevice();
+
+	/**
+	 * @brief swap chain 생성
+	 * @details swap chain : screen에 출력되기 전에 기다리는 image queue
+	 */
 	void createSwapchain();
+
+	/**
+	 * @brief 어떤 컨텐츠로 렌더링 작업을 처리해야하는 지 등을 render pass에 랩핑하기 위해 생성.
+	 */
 	void createRenderPass();
+
+	/**
+	 * @brief graphic pipeline 생성
+	 */
 	void createGraphicsPipeline();
+
+	/**
+	 * @brief frame buffer 생성
+	 */
 	void createFramebuffers();
+
+	/**
+	 * @brief command buffer 생성
+	 */
 	void createCommandBuffer();
+
+	/**
+	 * @brief semaphore과 fense를 생성합니다.
+	 * @details image를 획독했고 렌더링할 준비가 완료 됐다는 signal/ 렌더링 완료됐고 presentation이 발생할 수 있다는 signal을 위한 semaphore
+	 */
 	void createSyncObjects();
 
 	/**
-	 * @brief 
+	 * @brief vertex buffer 생성
 	 */
 	void createVertexBuffer();
 
 	/**
-	 * @brief
+	 * @brief index buffer 생성
 	 */
 	void createIndexBuffer();
 
