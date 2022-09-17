@@ -151,8 +151,27 @@ private:
 	void createSyncObjects();
 	/**
 	 * @brief 
+	 * @param 
 	 */
 	void createVertexBuffer();
+
+	/**
+	 * @brief 버퍼 생성
+	 * @param size			bufferSize
+	 * @param usage			buffer의 데이터의 사용 용도 지정
+	 * @param properties	VkMemoryPropertyFlags
+	 * @param buffer		ouput buffer
+	 * @param bufferMemory	ouput bufferMemory
+	 */
+	void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory);
+
+	/**
+	 * @brief src에서 dst로 buffer를 복사합니다.
+	 * @param srcBuffer
+	 * @param dstBuffer
+	 * @param size
+	 */
+	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
 	void mainLoop();
 	void cleanup();
@@ -203,8 +222,8 @@ private:
 	GLFWwindow* _window;
 
 	const std::vector<Vertex> _vertices = {
-	{{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-	{{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-	{{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+	{ { 0.0f, -0.5f },{ 1.0f, 1.0f, 1.0f } },
+	{ { 0.5f, 0.5f },{ 0.0f, 1.0f, 0.0f } },
+	{ { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
 	};
 };

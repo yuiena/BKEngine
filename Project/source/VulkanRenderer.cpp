@@ -148,6 +148,7 @@ void VulkanRenderer::initVulkan()
 	createFramebuffers();
 
 	createCommandPool();
+	createVertexBuffer();
 	createCommandBuffer();
 	createSyncObjects();
 }
@@ -554,46 +555,130 @@ uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFla
 
 void VulkanRenderer::createVertexBuffer()
 {
-	VkBufferCreateInfo bufferInfo = 
+	VkDeviceSize bufferSize = sizeof(_vertices[0]) * _vertices.size();
+
+	// stagingBuffer : vertex 배열에서 데이터를 업로드기 위해 CPU 엑세스 가능한 메모리.
+	
+	// staging buffer는 vertex data를 high performance GPU local memory에 copy해서 렌더링 성능을 높이기 위함입니다. 
+	// 그렇지 않은 경우, (잠재적으로 최적화되지 않음) CPU mappable buffer에 갇힐 것입니다.
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	// VK_BUFFER_USAGE_TRANSFER_SRC_BIT : Buffer가 memory transfer operation에서 source로 사용될 수 있다.
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+		stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, _vertices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+	// VK_BUFFER_USAGE_TRANSFER_DST_BIT : Buffer가 memory transfer operation에서 destination으로 사용될 수 있다.
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+		_vertexBuffer, _vertexBufferMemory);
+
+	//copy staging Buffer to Vertex Buffer
+	copyBuffer(stagingBuffer, _vertexBuffer, bufferSize);
+
+	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
+}
+
+void VulkanRenderer::copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size)
+{
+	VkCommandBufferAllocateInfo allocInfo{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,	// struct type
+		nullptr,										// next
+		_commandPool,									// command pool
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY,				// buffer Level
+		1												// command buffer count
+	};
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &commandBuffer);
+
+	//command buffer 기록 시작
+	VkCommandBufferBeginInfo beginInfo
+	{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// type
+		nullptr,										// next
+		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// usage flag
+		nullptr											// VkCommandBufferInheritanceInfo
+	};
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	// copy command
+	VkBufferCopy copyRegion{
+		0,		// src offset
+		0,		// dst offset
+		size	// size
+	};
+	vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+	// command 기록 종료
+	vkEndCommandBuffer(commandBuffer);
+
+	// command buffer 실행
+	VkSubmitInfo submitInfo{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO, // type
+		nullptr,		// next
+		0,				// wait semaphore count
+		nullptr,		// wait semaphore
+		nullptr,		// wait dst stage mask
+		1,				// command buffer count
+		&commandBuffer, // command buffer
+		0,				// signal semaphore count
+		nullptr			// signal semaphore
+	};
+
+	vkQueueSubmit(_graphicQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(_graphicQueue);
+
+	//사용한 command buffer 삭제
+	vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &commandBuffer);
+}
+
+void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkBuffer& buffer, VkDeviceMemory& bufferMemory)
+{
+	VkBufferCreateInfo bufferInfo =
 	{
 		VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,	// VkStructureType
 		nullptr,								// next
 		0,										// flag
-		sizeof(_vertices[0]) * _vertices.size(),// buffer byte 크기
-		VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,		// VkBufferUsageFlags : buffer의 데이터가 어떤 용도로 사용되는지
+		size,									// buffer byte 크기
+		usage,									// VkBufferUsageFlags : buffer의 데이터가 어떤 용도로 사용되는지
 		VK_SHARING_MODE_EXCLUSIVE,				// VkSharingMode
 		0,										// queueFamilyIndexCount
 		nullptr,								// pQueueFamilyIndices
 	};
-	
+
 	// buffer 생성!
-	if (vkCreateBuffer(_logicalDevice, &bufferInfo, nullptr, &_vertexBuffer) != VK_SUCCESS)
+	if (vkCreateBuffer(_logicalDevice, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create vertex buffer!");
 	}
 
 	// 생성 된 buffer에 메모리 할당을 위해 memory requirement 쿼리
 	VkMemoryRequirements memRequirements;
-	vkGetBufferMemoryRequirements(_logicalDevice, _vertexBuffer, &memRequirements);
+	vkGetBufferMemoryRequirements(_logicalDevice, buffer, &memRequirements);
 
 	// 메모리 할당하기 위한 정보 셋팅
-	VkMemoryAllocateInfo allocInfo{};
-	allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-	allocInfo.allocationSize = memRequirements.size;
-	// 그래픽카드는 할당을 위한 서로 다른 메모리 유형을 제공할 수 있음으로 올바른 유형의 메모리를 찾는다.
-	allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+	VkMemoryAllocateInfo allocInfo
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,						// VkStructureType
+		nullptr,													// next
+		memRequirements.size,										// allocationSize
+		findMemoryType(memRequirements.memoryTypeBits, properties) // memoryTypeIndex
+	};
+	
 
 	// 실제 메모리 할당
-	if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &_vertexBufferMemory) != VK_SUCCESS) {
+	if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS)
+	{
 		throw std::runtime_error("failed to allocate vertex buffer memory!");
 	}
 
-	vkBindBufferMemory(_logicalDevice, _vertexBuffer, _vertexBufferMemory, 0);
-
-	void* data;
-	vkMapMemory(_logicalDevice, _vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-	memcpy(data, _vertices.data(), (size_t)bufferInfo.size);
-	vkUnmapMemory(_logicalDevice, _vertexBufferMemory);
+	vkBindBufferMemory(_logicalDevice, buffer, bufferMemory, 0);
 }
 
 VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
