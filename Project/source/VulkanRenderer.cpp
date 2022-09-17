@@ -148,7 +148,10 @@ void VulkanRenderer::initVulkan()
 	createFramebuffers();
 
 	createCommandPool();
+
 	createVertexBuffer();
+	createIndexBuffer();
+	
 	createCommandBuffer();
 	createSyncObjects();
 }
@@ -304,12 +307,15 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	scissor.extent = _swapchain.size;
 	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	// ------------ Vertex Buffer binding 
+	//------------- Vertex Buffer binding 
 	VkBuffer vertexBuffers[] = { _vertexBuffer };
 	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+	vkCmdBindVertexBuffers(commandBuffer, 0/*first binding*/, 1/*binding count*/, vertexBuffers, offsets);
 
-	vkCmdDraw(commandBuffer, 3, 1, 0, 0);
+	//------------- Index Buffer binding 
+	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size())/*index count*/, 1/*instance count*/, 0/*first index*/, 0/*vertex offset*/, 0/*first instance*/);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -443,6 +449,10 @@ void VulkanRenderer::cleanup()
 	vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
 
 	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
+
+	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
 
 	//frame buffer는 image view들과 render pass 이후에 삭제 되야 함.
 	for (auto framebuffers : _swapchain.framebuffers)
@@ -471,8 +481,6 @@ void VulkanRenderer::cleanup()
 	vkDestroyInstance(_instance, nullptr);
 
 	glfwDestroyWindow(_window);
-
-	
 
 	glfwTerminate();
 }
@@ -537,6 +545,28 @@ void VulkanRenderer::createFramebuffers()
 			throw std::runtime_error("failed to create framebuffer!");
 		}
 	}
+}
+
+void VulkanRenderer::createIndexBuffer()
+{
+	VkDeviceSize bufferSize = sizeof(_indices[0]) * _indices.size();
+
+	VkBuffer stagingBuffer;
+	VkDeviceMemory stagingBufferMemory;
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, stagingBuffer, stagingBufferMemory);
+
+	void* data;
+	vkMapMemory(_logicalDevice, stagingBufferMemory, 0, bufferSize, 0, &data);
+	memcpy(data, _indices.data(), (size_t)bufferSize);
+	vkUnmapMemory(_logicalDevice, stagingBufferMemory);
+
+	createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _indexBuffer, _indexBufferMemory);
+
+	copyBuffer(stagingBuffer, _indexBuffer, bufferSize);
+
+	vkDestroyBuffer(_logicalDevice, stagingBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, stagingBufferMemory, nullptr);
 }
 
 uint32_t VulkanRenderer::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties)

@@ -149,11 +149,16 @@ private:
 	void createFramebuffers();
 	void createCommandBuffer();
 	void createSyncObjects();
+
 	/**
 	 * @brief 
-	 * @param 
 	 */
 	void createVertexBuffer();
+
+	/**
+	 * @brief
+	 */
+	void createIndexBuffer();
 
 	/**
 	 * @brief 버퍼 생성
@@ -218,12 +223,16 @@ private:
 
 	VkBuffer _vertexBuffer;
 	VkDeviceMemory _vertexBufferMemory;
+	VkBuffer _indexBuffer;
+	VkDeviceMemory _indexBufferMemory;
 
 	GLFWwindow* _window;
 
 	const std::vector<Vertex> _vertices = {
-	{ { 0.0f, -0.5f },{ 1.0f, 1.0f, 1.0f } },
-	{ { 0.5f, 0.5f },{ 0.0f, 1.0f, 0.0f } },
-	{ { -0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }
+		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } }, // red
+		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } }, // green
+		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }, // blue
+		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f } } // white
 	};
+	const std::vector<uint16_t> _indices = { 0, 1, 2, 2, 3, 0 };
 };
