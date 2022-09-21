@@ -16,6 +16,7 @@ const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_N
 
 const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
 
+const int MAX_FRAMES_IN_FLIGHT = 2;
 
 #pragma region HelpFunction
 
@@ -143,19 +144,113 @@ void VulkanRenderer::initVulkan()
 	createLogicalDevice();
 
 	createSwapchain();
+	createImageViews();
 	createRenderPass();
+
+	//createDescriptorSetLayout();
 	createGraphicsPipeline();
 	createFramebuffers();
-
 	createCommandPool();
 
 	createVertexBuffer();
 	createIndexBuffer();
-	
 	createCommandBuffer();
 	createSyncObjects();
 }
 
+void VulkanRenderer::recreateSwapchain()
+{
+	int width = 0, height = 0;
+	glfwGetFramebufferSize(_window, &width, &height);
+	while (width == 0 || height == 0) 
+	{
+		glfwGetFramebufferSize(_window, &width, &height);
+		glfwWaitEvents();
+	}
+
+	vkDeviceWaitIdle(_logicalDevice);
+
+	cleanupSwapchain();
+
+	createSwapchain();
+	createImageViews();
+	createFramebuffers();
+}
+
+void VulkanRenderer::cleanupSwapchain()
+{
+	for (auto framebuffer : _swapchain.framebuffers) {
+		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
+	}
+
+	for (auto imageView : _swapchain.imageViews)
+	{
+		vkDestroyImageView(_logicalDevice, imageView, nullptr);
+	}
+
+	vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
+}
+
+void VulkanRenderer::createUniformBuffers()
+{
+	//VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	_uniformBuffers.resize(_swapchain.images.size());
+	_uniformBuffersMemory.resize(_swapchain.images.size());
+
+	for (size_t i = 0; i < _swapchain.images.size(); i++)
+	{
+		//createBuffer(_bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+	}
+}
+
+void VulkanRenderer::updateUniformBuffers(uint32_t currentImage)
+{
+
+}
+
+void VulkanRenderer::createDescriptorSetLayout()
+{
+	// descriptor은 shader가 자유롭게 buffer나 image 같은 리소스를 액세스하는 것에 대한 방법.
+	// 1. pipeline 생성동안 descriptor layout을 설정합니다.
+	// 2. descriptor pool에서 descriptor set을 할당합니다.
+	// 3. rendering동안 descriptor set을 바인드합니다.
+
+	// binding 기술
+	VkDescriptorSetLayoutBinding uboLayoutBinding = {
+		0,									// shader binding
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,	// shader descriptorType
+		1,									// descriptor Count 배열안의 몇 개의 변수가 있는지
+		VK_SHADER_STAGE_VERTEX_BIT,			// Shader stage Flag
+		nullptr,							// image sampler
+	};
+	
+	VkDescriptorSetLayoutCreateInfo layoutInfo{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,	// type
+		nullptr,												// next
+		0,														// DescriptorSetLayoutCreate Flags
+		1,														// binding count
+		&uboLayoutBinding										// bindings
+	};
+
+	// 모든 descriptor binding은 _descriptorSetLayout( VkDescriptorSetLayout )으로 결합된다.
+	if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &_descriptorSetLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
+
+	// 어떤 descriptor가 shader에 사용될지 알려주기 위해 pipeline 생성 동안 descriptor set layout 지정
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,	// type
+		nullptr,										// pNext
+		0,												// VkPipelineLayoutCreateFlags
+		1,												// setLayout Count
+		&_descriptorSetLayout,							// pSetLayouts
+		0,												// pushConstantRangeCount
+		nullptr,										// VkPushConstantRange
+	};
+
+}
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -370,16 +465,29 @@ void VulkanRenderer::drawFrame()
 		2. frame buffer에서 해당 image를 attachment로 command buffer 실행
 		3. presentation을 위해 swap chain에 image 반환.
 	*/
-	vkWaitForFences(_logicalDevice, 1, &_inFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(_logicalDevice, 1, &_inFlightFence);
+	vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
+
+	uint32_t imageIndex;
+	VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) 
+	{
+		recreateSwapchain();
+		return;
+	}
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		throw std::runtime_error("failed to acquire swap chain image!");
+	}
+
+	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]);
 
 	//1. swap chain으로 부터 image 획득
-	uint32_t imageIndex;
-	vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+	vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
-	vkResetCommandBuffer(_commandBuffer, /*VkCommandBufferResetFlagBits*/ 0);
-	recordCommandBuffer(_commandBuffer, imageIndex);
+	vkResetCommandBuffer(_commandBuffers[_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
+	recordCommandBuffer(_commandBuffers[_currentFrame], imageIndex);
 
+	updateUniformBuffers(imageIndex);
 
 	// queue submit(제출) 및 동기화
 	VkSubmitInfo submitInfo{};
@@ -387,7 +495,7 @@ void VulkanRenderer::drawFrame()
 
 
 	//semaphore들이 실행이 시작되기 전에 기다려아 하는지, pipeline의 stage(들)을 기다려야하는지 지정.
-	VkSemaphore waitSemaphores[] = { _imageAvailableSemaphore };
+	VkSemaphore waitSemaphores[] = { _imageAvailableSemaphores[_currentFrame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	submitInfo.waitSemaphoreCount = 1;
 	submitInfo.pWaitSemaphores = waitSemaphores;
@@ -396,15 +504,15 @@ void VulkanRenderer::drawFrame()
 	// 2. frame buffer에서 해당 image를 attachment로 command buffer 실행
 	// swap chain image를 color attachment로 바인딩하는 command buffer 제출.
 	submitInfo.commandBufferCount = 1;
-	submitInfo.pCommandBuffers = &_commandBuffer;
+	submitInfo.pCommandBuffers = &_commandBuffers[_currentFrame];
 
 	//실행이 완료 됐을때 signal보낼 semaphore.
-	VkSemaphore signalSemaphores[] = { _renderFinishedSemaphore };
+	VkSemaphore signalSemaphores[] = { _renderFinishedSemaphores[_currentFrame] };
 	submitInfo.signalSemaphoreCount = 1;
 	submitInfo.pSignalSemaphores = signalSemaphores;
 
 	//위에서 셋팅했던 것들로 graphics queue에 command buffer 제출 가능.
-	if (vkQueueSubmit(_graphicQueue, 1, &submitInfo, _inFlightFence) != VK_SUCCESS)
+	if (vkQueueSubmit(_graphicQueue, 1, &submitInfo, _inFlightFences[_currentFrame]) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to submit draw command buffer!");
 	}
@@ -427,6 +535,18 @@ void VulkanRenderer::drawFrame()
 
 	// swap chain에게 image를 표시하라는 요청 제출!!
 	vkQueuePresentKHR(_presentQueue, &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || framebufferResized)
+	{
+		framebufferResized = false;
+		recreateSwapchain();
+	}
+	else if (result != VK_SUCCESS) 
+	{
+		throw std::runtime_error("failed to present swap chain image!");
+	}
+
+	_currentFrame = (_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void VulkanRenderer::mainLoop()
@@ -442,9 +562,19 @@ void VulkanRenderer::mainLoop()
 
 void VulkanRenderer::cleanup()
 {
-	vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphore, nullptr);
-	vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphore, nullptr);
-	vkDestroyFence(_logicalDevice, _inFlightFence, nullptr);
+
+	cleanupSwapchain();
+
+	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
+	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
+	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkDestroySemaphore(_logicalDevice, _renderFinishedSemaphores[i], nullptr);
+		vkDestroySemaphore(_logicalDevice, _imageAvailableSemaphores[i], nullptr);
+		vkDestroyFence(_logicalDevice, _inFlightFences[i], nullptr);
+	}
 
 	vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
 
@@ -454,21 +584,6 @@ void VulkanRenderer::cleanup()
 	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
 	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
 
-	//frame buffer는 image view들과 render pass 이후에 삭제 되야 함.
-	for (auto framebuffers : _swapchain.framebuffers)
-	{
-		vkDestroyFramebuffer(_logicalDevice, framebuffers, nullptr);
-	}
-
-	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
-	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
-	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
-
-	for (auto imageView : _swapchain.imageViews)
-	{
-		vkDestroyImageView(_logicalDevice, imageView, nullptr);
-	}
-
 	vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
 	vkDestroyDevice(_logicalDevice, nullptr);
 
@@ -476,7 +591,7 @@ void VulkanRenderer::cleanup()
 	{
 		//DestroyDebugUtilsMessengerEXT(_instance, debugMessenger, nullptr);
 	}
-
+	vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
 	vkDestroySurfaceKHR(_instance, _surface, nullptr);
 	vkDestroyInstance(_instance, nullptr);
 
@@ -487,6 +602,10 @@ void VulkanRenderer::cleanup()
 
 void VulkanRenderer::createSyncObjects()
 {
+	_imageAvailableSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	_renderFinishedSemaphores.resize(MAX_FRAMES_IN_FLIGHT);
+	_inFlightFences.resize(MAX_FRAMES_IN_FLIGHT);
+
 	VkSemaphoreCreateInfo semaphoreInfo{};
 	semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -494,16 +613,56 @@ void VulkanRenderer::createSyncObjects()
 	fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
 	fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-	if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_imageAvailableSemaphore) != VK_SUCCESS ||
-		vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_renderFinishedSemaphore) != VK_SUCCESS ||
-		vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &_inFlightFence) != VK_SUCCESS) {
-		throw std::runtime_error("failed to create synchronization objects for a frame!");
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		if (vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_imageAvailableSemaphores[i]) != VK_SUCCESS ||
+			vkCreateSemaphore(_logicalDevice, &semaphoreInfo, nullptr, &_renderFinishedSemaphores[i]) != VK_SUCCESS ||
+			vkCreateFence(_logicalDevice, &fenceInfo, nullptr, &_inFlightFences[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create synchronization objects for a frame!");
+		}
 	}
 
 }
 
+void VulkanRenderer::createImageViews()
+{
+	//--------------------ImageView
+	// swap chain 개수에 맞게 imageViews도 리사이즈
+	_swapchain.imageViews.resize(_swapchain.images.size());
+
+
+	for (size_t i = 0; i < _swapchain.images.size(); i++)
+	{
+		VkImageViewCreateInfo createInfo{};
+		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+		createInfo.image = _swapchain.images[i];
+		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+		createInfo.format = _swapchain.format;
+		// color channel을 섞을 수 있도록 해줌. (단색 텍스처를 쓴다면 모든 channel을 red로 매핑할 수도 있음.)
+		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+		// 이미지의 용도, 어떤 부분을 액세스 해야하는지 기술
+		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		createInfo.subresourceRange.baseMipLevel = 0;
+		createInfo.subresourceRange.levelCount = 1;
+		createInfo.subresourceRange.baseArrayLayer = 0;
+		createInfo.subresourceRange.layerCount = 1;
+
+		// 다 설정 했으니 image View create!
+		if (vkCreateImageView(_logicalDevice, &createInfo, nullptr, &_swapchain.imageViews[i]) != VK_SUCCESS)
+		{
+			throw std::runtime_error("failed to create image views!");
+		}
+	}
+}
+
 void VulkanRenderer::createCommandBuffer()
 {
+	_commandBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+
 	// VK_COMMAND_BUFFER_LEVEL_PRIMARY : 실행을 위해 queue에 제출될 수 있지만 다른 command buffer에서 호출 x
 	// VK_COMMAND_BUFFER_LEVEL_SECONDARY : 직접 실행 x, primary command buffer에서 호출 o
 	VkCommandBufferAllocateInfo allocInfo = {
@@ -511,10 +670,10 @@ void VulkanRenderer::createCommandBuffer()
 	  nullptr,                                          // const void             * pNext
 	  _commandPool,                                     // VkCommandPool            commandPool
 	  VK_COMMAND_BUFFER_LEVEL_PRIMARY,                  // VkCommandBufferLevel     level
-	  1													// uint32_t                 commandBufferCount
+	 (uint32_t)_commandBuffers.size()												// uint32_t                 commandBufferCount
 	};
 
-	if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &_commandBuffer) != VK_SUCCESS)
+	if (vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &_commandBuffers[_currentFrame]) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to allocate command buffers!");
 	}
@@ -1110,36 +1269,7 @@ void VulkanRenderer::createSwapchain()
 	_swapchain.format = surfaceFormat.format;
 	_swapchain.size = extent;
 
-	//--------------------ImageView
-	// swap chain 개수에 맞게 imageViews도 리사이즈
-	_swapchain.imageViews.resize(_swapchain.images.size());
-
-
-	for (size_t i = 0; i < _swapchain.images.size(); i++)
-	{
-		VkImageViewCreateInfo createInfo{};
-		createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-		createInfo.image = _swapchain.images[i];
-		createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-		createInfo.format = _swapchain.format;
-		// color channel을 섞을 수 있도록 해줌. (단색 텍스처를 쓴다면 모든 channel을 red로 매핑할 수도 있음.)
-		createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-		createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-		// 이미지의 용도, 어떤 부분을 액세스 해야하는지 기술
-		createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-		createInfo.subresourceRange.baseMipLevel = 0;
-		createInfo.subresourceRange.levelCount = 1;
-		createInfo.subresourceRange.baseArrayLayer = 0;
-		createInfo.subresourceRange.layerCount = 1;
-
-		// 다 설정 했으니 image View create!
-		if (vkCreateImageView(_logicalDevice, &createInfo, nullptr, &_swapchain.imageViews[i]) != VK_SUCCESS)
-		{
-			throw std::runtime_error("failed to create image views!");
-		}
-	}
+	
 }
 
 void VulkanRenderer::createLogicalDevice()
@@ -1362,7 +1492,7 @@ const QueueFamilyIndices& VulkanRenderer::findQueueFamilies(VkPhysicalDevice dev
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, _surface, &presentSupport);
 
 		if (presentSupport)
-			indices.present.familyIndex = i;
+			indices.present.familyIndex = i; 
 
 		if (indices.isComplete())
 			break;
@@ -1403,15 +1533,21 @@ void VulkanRenderer::createCommandPool()
 	}
 }
 
+static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+	auto app = reinterpret_cast<VulkanRenderer*>(glfwGetWindowUserPointer(window));
+	app->framebufferResized = true;
+}
+
 void  VulkanRenderer::initWindow()
 {
 	glfwInit();
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
 	_window = glfwCreateWindow(WIDTH, HEIGHT, engineName.c_str(), nullptr, nullptr);
-
+	glfwSetWindowUserPointer(_window, this);
+	glfwSetFramebufferSizeCallback(_window, framebufferResizeCallback);
 }
 
 

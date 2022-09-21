@@ -131,6 +131,8 @@ public:
 		cleanup();
 	}
 
+	bool framebufferResized = false;
+
 private:
 	/**
 	 * @brief window 초기화
@@ -200,6 +202,11 @@ private:
 	void createSyncObjects();
 
 	/**
+	 * @brief 
+	 */
+	void recreateSwapchain();
+
+	/**
 	 * @brief vertex buffer 생성
 	 */
 	void createVertexBuffer();
@@ -227,8 +234,26 @@ private:
 	 */
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
+	/**
+	 * @brief 
+	 */
+	void createUniformBuffers();
+
+	/**
+	 * @brief pipeline 생성 전에 shader안에서 사용되는 모든 descriptor binding에 대한 세부사항을 제공.
+	 */
+	void createDescriptorSetLayout();
+
+	/**
+	 * @brief
+	 */
+	void updateUniformBuffers(uint32_t currentImage);
+
+	void createImageViews();
+
 	void mainLoop();
 	void cleanup();
+	void cleanupSwapchain();
 	void drawFrame();
 
 	void recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex);
@@ -247,7 +272,7 @@ private:
 	VkPhysicalDevice	_physicalDevice = VK_NULL_HANDLE;
 
 	VkCommandPool	_commandPool;
-	VkCommandBuffer _commandBuffer;
+	std::vector<VkCommandBuffer> _commandBuffers;
 
 	VkQueue _graphicQueue;
 	VkQueue _computeQueue;
@@ -258,22 +283,31 @@ private:
 	SwapchainParameters _swapchain;
 	VkRenderPass		_renderPass;
 
+	VkDescriptorSetLayout _descriptorSetLayout;
 	VkPipelineLayout	_pipelineLayout;
 	VkPipeline			_graphicsPipeline;
 
 	VkPipelineLayout	_computePipelineLayout;
 	VkPipeline			_computePipeline;
 
-	VkSemaphore _imageAvailableSemaphore;
-	VkSemaphore _renderFinishedSemaphore;
-	VkFence		_inFlightFence;
+	std::vector<VkSemaphore> _imageAvailableSemaphores;
+	std::vector<VkSemaphore> _renderFinishedSemaphores;
+	std::vector<VkFence>	_inFlightFences;
+	uint32_t _currentFrame = 0;
+
+	
 
 	ImageTransition _imageTransition;
 
+	//--------------------------------Shader
 	VkBuffer _vertexBuffer;
 	VkDeviceMemory _vertexBufferMemory;
+
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
+
+	std::vector<VkBuffer> _uniformBuffers;
+	std::vector<VkDeviceMemory> _uniformBuffersMemory;
 
 	GLFWwindow* _window;
 
