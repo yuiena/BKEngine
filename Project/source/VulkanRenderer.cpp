@@ -147,13 +147,19 @@ void VulkanRenderer::initVulkan()
 	createImageViews();
 	createRenderPass();
 
-	//createDescriptorSetLayout();
+	createDescriptorSetLayout();
+
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
 
 	createVertexBuffer();
 	createIndexBuffer();
+
+	createUniformBuffers();
+	createDescriptorPool();
+	createDescriptorSets();
+
 	createCommandBuffer();
 	createSyncObjects();
 }
@@ -177,36 +183,110 @@ void VulkanRenderer::recreateSwapchain()
 	createFramebuffers();
 }
 
-void VulkanRenderer::cleanupSwapchain()
+
+void VulkanRenderer::createDescriptorSets()
 {
-	for (auto framebuffer : _swapchain.framebuffers) {
-		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
-	}
+	std::vector<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT, _descriptorSetLayout);
 
-	for (auto imageView : _swapchain.imageViews)
+	VkDescriptorSetAllocateInfo allocInfo{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,	// type
+		nullptr,										// next
+		_descriptorPool,								// descriptor pool
+		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),	// descriptor set count
+		layouts.data()									//set layouts
+	};
+
+	_descriptorSets.resize(MAX_FRAMES_IN_FLIGHT);
+	if (vkAllocateDescriptorSets(_logicalDevice, &allocInfo, _descriptorSets.data()) != VK_SUCCESS) 
 	{
-		vkDestroyImageView(_logicalDevice, imageView, nullptr);
+		throw std::runtime_error("failed to allocate descriptor sets!");
 	}
 
-	vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) 
+	{
+		VkDescriptorBufferInfo bufferInfo{
+			_uniformBuffers[i],			// buffer
+			0,							// offset
+			sizeof(UniformBufferObject) // range
+		};
+
+		VkWriteDescriptorSet descriptorWrite{
+			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, // type
+			nullptr,								// next 
+			_descriptorSets[i],						// descriptor set dst
+			0,										// dstBinding
+			0,										// dst Array Element
+			1,										// descriptor Count
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,		// descriptor Type
+			nullptr,								// image info
+			&bufferInfo,							// buffer info
+			nullptr									// texel buffer view
+		};
+
+		vkUpdateDescriptorSets(_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+	}
 }
 
 void VulkanRenderer::createUniformBuffers()
 {
-	//VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
 
-	_uniformBuffers.resize(_swapchain.images.size());
-	_uniformBuffersMemory.resize(_swapchain.images.size());
+	_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	_uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
 
-	for (size_t i = 0; i < _swapchain.images.size(); i++)
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
-		//createBuffer(_bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, uniformBuffers[i], uniformBuffersMemory[i]);
+		createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
 	}
 }
 
-void VulkanRenderer::updateUniformBuffers(uint32_t currentImage)
+void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 {
+	static auto startTime = std::chrono::high_resolution_clock::now();
 
+	auto currentTime = std::chrono::high_resolution_clock::now();
+	float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+
+	UniformBufferObject ubo;
+
+	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.proj = glm::perspective(glm::radians(45.0f), _swapchain.size.width / (float)_swapchain.size.height, 0.1f, 10.0f);
+	// GLM은 기본적으로 OpenGL을 위해 설계됐고 vulkan에선 clip coordinate Y 좌표가 반전 시켜줘야한다.
+	ubo.proj[1][1] *= -1;
+
+	// UBO를 uniform buffer에 복사해준다. 
+	void* data;
+	vkMapMemory(_logicalDevice, _uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
+
+	memcpy(data, &ubo, sizeof(ubo));
+	
+	vkUnmapMemory(_logicalDevice, _uniformBuffersMemory[currentImage]);
+}
+
+void VulkanRenderer::createDescriptorPool()
+{
+	// 어떤 descriptor type을 우리의 descriptor set에 담을지 그리고 그게 얼마나 많을지를 기술
+	VkDescriptorPoolSize poolSize{
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
+		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)	// descriptor Count
+	};
+
+	VkDescriptorPoolCreateInfo poolInfo{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,		// type
+		nullptr,											// next
+		0,													// descriptor pool create flag
+		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),		// max sets
+		1,													// pool size count
+		&poolSize											// pool sizes
+	};
+
+
+	if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &_descriptorPool) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor pool!");
+	}
 }
 
 void VulkanRenderer::createDescriptorSetLayout()
@@ -237,19 +317,7 @@ void VulkanRenderer::createDescriptorSetLayout()
 	if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &_descriptorSetLayout) != VK_SUCCESS)
 	{
 		throw std::runtime_error("failed to create descriptor set layout!");
-	}
-
-	// 어떤 descriptor가 shader에 사용될지 알려주기 위해 pipeline 생성 동안 descriptor set layout 지정
-	VkPipelineLayoutCreateInfo pipelineLayoutInfo{
-		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,	// type
-		nullptr,										// pNext
-		0,												// VkPipelineLayoutCreateFlags
-		1,												// setLayout Count
-		&_descriptorSetLayout,							// pSetLayouts
-		0,												// pushConstantRangeCount
-		nullptr,										// VkPushConstantRange
-	};
-
+	}	
 }
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
@@ -410,6 +478,10 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	//------------- Index Buffer binding 
 	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT16);
 
+	//------------- 각 프레임에 설정된 올바른 descriptor을 사용해서 shader descriptor에 실제 바인딩 하도록 함수를 업데이트 합니다
+	// vkCmdDrawIndexed 호출 전에 수행해야 합니다.
+	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _pipelineLayout, 0, 1, &_descriptorSets[_currentFrame], 0, nullptr);
+
 	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size())/*index count*/, 1/*instance count*/, 0/*first index*/, 0/*vertex offset*/, 0/*first instance*/);
 
 	vkCmdEndRenderPass(commandBuffer);
@@ -468,6 +540,7 @@ void VulkanRenderer::drawFrame()
 	vkWaitForFences(_logicalDevice, 1, &_inFlightFences[_currentFrame], VK_TRUE, UINT64_MAX);
 
 	uint32_t imageIndex;
+	//1. swap chain으로 부터 image 획득
 	VkResult result = vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
 
 	if (result == VK_ERROR_OUT_OF_DATE_KHR) 
@@ -475,19 +548,18 @@ void VulkanRenderer::drawFrame()
 		recreateSwapchain();
 		return;
 	}
-	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+	else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) 
+	{
 		throw std::runtime_error("failed to acquire swap chain image!");
 	}
 
-	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]);
+	updateUniformBuffer(_currentFrame);
 
-	//1. swap chain으로 부터 image 획득
-	vkAcquireNextImageKHR(_logicalDevice, _swapchain.handle, UINT64_MAX, _imageAvailableSemaphores[_currentFrame], VK_NULL_HANDLE, &imageIndex);
+	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]);
 
 	vkResetCommandBuffer(_commandBuffers[_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
 	recordCommandBuffer(_commandBuffers[_currentFrame], imageIndex);
-
-	updateUniformBuffers(imageIndex);
+	
 
 	// queue submit(제출) 및 동기화
 	VkSubmitInfo submitInfo{};
@@ -560,14 +632,44 @@ void VulkanRenderer::mainLoop()
 	vkDeviceWaitIdle(_logicalDevice);
 }
 
+
+void VulkanRenderer::cleanupSwapchain()
+{
+	for (auto framebuffer : _swapchain.framebuffers)
+	{
+		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
+	}
+
+	for (auto imageView : _swapchain.imageViews)
+	{
+		vkDestroyImageView(_logicalDevice, imageView, nullptr);
+	}
+
+	vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
+}
+
 void VulkanRenderer::cleanup()
 {
-
 	cleanupSwapchain();
 
 	vkDestroyPipeline(_logicalDevice, _graphicsPipeline, nullptr);
 	vkDestroyPipelineLayout(_logicalDevice, _pipelineLayout, nullptr);
 	vkDestroyRenderPass(_logicalDevice, _renderPass, nullptr);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		vkDestroyBuffer(_logicalDevice, _uniformBuffers[i], nullptr);
+		vkFreeMemory(_logicalDevice, _uniformBuffersMemory[i], nullptr);
+	}
+
+	vkDestroyDescriptorPool(_logicalDevice, _descriptorPool, nullptr);
+	vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
+
+	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
+
+	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
@@ -578,20 +680,13 @@ void VulkanRenderer::cleanup()
 
 	vkDestroyCommandPool(_logicalDevice, _commandPool, nullptr);
 
-	vkDestroyBuffer(_logicalDevice, _vertexBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, _vertexBufferMemory, nullptr);
-
-	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
-	vkFreeMemory(_logicalDevice, _indexBufferMemory, nullptr);
-
-	vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
 	vkDestroyDevice(_logicalDevice, nullptr);
 
 	if (enableValidationLayers)
 	{
 		//DestroyDebugUtilsMessengerEXT(_instance, debugMessenger, nullptr);
 	}
-	vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
+	
 	vkDestroySurfaceKHR(_instance, _surface, nullptr);
 	vkDestroyInstance(_instance, nullptr);
 
@@ -888,8 +983,8 @@ VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
 void VulkanRenderer::createGraphicsPipeline()
 {
 	//----------------------------------------------------------------------------------------------------------
-	auto vertShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\vert2.spv");
-	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag2.spv");
+	auto vertShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\vert_ubo.spv");
+	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag_ubo.spv");
 	//auto computeShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\shader.comp.spv");
 
 	// 파이프라인에 코드를 전달하기 위해 VkShaderModule 오브젝트로 랩핑 해야함.
@@ -974,7 +1069,8 @@ void VulkanRenderer::createGraphicsPipeline()
 	rasterizer.lineWidth = 1.0f;
 	// face culling 우형
 	rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-	rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+	// proj Y-flip때문에 vertex는 CW order가 아니라 CCW order로 그려지고 있다. 이는 backface culling이 시작되어 gemoetry가 그려지는 것을 막기 때문에 아래의 플래그를 바꿔준다.
+	rasterizer.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 	rasterizer.depthBiasEnable = VK_FALSE;
 
 	// multi sampling 구성. anti-aliasing을 수행하기 위한 방법 중 하나.		
@@ -1014,17 +1110,17 @@ void VulkanRenderer::createGraphicsPipeline()
 
 	//shader에서 사용되는 uniform값은 global값으로 dynamic state 와 유사하게 shader 재생성 없이 drawing 시점에서 바꿀 수 있다.
 	// 이 uniform은 VkPipelineLayout 오브젝트 생성을 통해 pipeline을 생성하는 동안 지정된다.
+	// ( 어떤 descriptor가 shader에 사용될지 알려주기 위해 pipeline 생성 동안 descriptor set layout 지정 )
 	// Descriptor set with storage image
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
 		VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,  // VkStructureType                  sType
 		nullptr,                                        // const void                     * pNext
 		0,                                              // VkPipelineLayoutCreateFlags      flags
-		0,												// uint32_t                         setLayoutCount
-		nullptr,										// const VkDescriptorSetLayout    * pSetLayouts
+		1,												// uint32_t                         setLayoutCount
+		&_descriptorSetLayout,							// const VkDescriptorSetLayout    * pSetLayouts
 		0,												// uint32_t                         pushConstantRangeCount
 		nullptr											// const VkPushConstantRange      * pPushConstantRanges
 	};
-
 
 	if (vkCreatePipelineLayout(_logicalDevice, &pipelineLayoutInfo, nullptr, &_pipelineLayout) != VK_SUCCESS)
 	{
@@ -1187,11 +1283,6 @@ void VulkanRenderer::createSwapchain()
 		3. 사용 가능한 presentation 모드
 	*/
 	SwapChainSupportDetails swapChainSupport = querySwapChainSupport(_physicalDevice);
-
-	_swapchain.clear();
-	if (!_swapchain.handle)
-		vkDestroySwapchainKHR(_logicalDevice, _swapchain.handle, nullptr);
-
 
 	// 1. surface format(color depth)
 	VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);

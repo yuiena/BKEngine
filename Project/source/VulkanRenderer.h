@@ -2,6 +2,12 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#define GLM_FORCE_RADIANS
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
+#include <chrono>
+
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
@@ -245,9 +251,19 @@ private:
 	void createDescriptorSetLayout();
 
 	/**
+	 * @brief uniformBuffer를 업데이트 합니다.
+	 */
+	void updateUniformBuffer(uint32_t currentImage);
+
+	/**
 	 * @brief
 	 */
-	void updateUniformBuffers(uint32_t currentImage);
+	void createDescriptorPool();
+
+	/**
+	 * @brief
+	 */
+	void createDescriptorSets();
 
 	void createImageViews();
 
@@ -283,7 +299,11 @@ private:
 	SwapchainParameters _swapchain;
 	VkRenderPass		_renderPass;
 
-	VkDescriptorSetLayout _descriptorSetLayout;
+	VkDescriptorSetLayout	_descriptorSetLayout;
+	VkDescriptorPool		_descriptorPool;
+	std::vector<VkDescriptorSet> _descriptorSets;
+
+
 	VkPipelineLayout	_pipelineLayout;
 	VkPipeline			_graphicsPipeline;
 
@@ -318,4 +338,11 @@ private:
 		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f } } // white
 	};
 	const std::vector<uint16_t> _indices = { 0, 1, 2, 2, 3, 0 };
+
+	struct UniformBufferObject 
+	{
+		glm::mat4 model;
+		glm::mat4 view;
+		glm::mat4 proj;
+	};
 };
