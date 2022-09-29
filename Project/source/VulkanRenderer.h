@@ -6,18 +6,17 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+
+#include "VulkanHelper.h"
+
 #include <chrono>
 
-#include <iostream>
 #include <stdexcept>
 #include <algorithm>
 #include <vector>
-#include <cstring>
 #include <cstdlib>
 #include <cstdint>
 #include <limits>
-#include <set>
-#include <glm/glm.hpp>
 #include <array>
 
 
@@ -88,7 +87,7 @@ struct Vertex
 {
 	glm::vec2 pos;
 	glm::vec3 color;
-
+	glm::vec2 texCoord;
 	/**
 	 * @brief vertex 데이터를 하나의 배열에 포장한다.
 	 */
@@ -108,9 +107,9 @@ struct Vertex
 	/**
 	 * @brief 위의 binding description에서 만들어진 vertex 데이터 청크에서 vertex attribute 추출!
 	 */
-	static std::array<VkVertexInputAttributeDescription, 2> getAttributeDescriptions()
+	static std::array<VkVertexInputAttributeDescription, 3> getAttributeDescriptions()
 	{
-		std::array<VkVertexInputAttributeDescription, 2> attributeDescriptions{};
+		std::array<VkVertexInputAttributeDescription, 3> attributeDescriptions{};
 
 		attributeDescriptions[0].binding = 0;						// vertex별 데이터의 binding index
 		attributeDescriptions[0].location = 0;						// vertex shader에서 input의 location index
@@ -121,6 +120,11 @@ struct Vertex
 		attributeDescriptions[1].location = 1;
 		attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
 		attributeDescriptions[1].offset = offsetof(Vertex, color);
+
+		attributeDescriptions[2].binding = 0;
+		attributeDescriptions[2].location = 2;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 		return attributeDescriptions;
 	}
@@ -159,11 +163,7 @@ private:
 	 * @brief 렌더링된 이미지를 표시할 곳(surface)를 생성한다.
 	 */
 	void createSurface();
-
-	/**
-	 * @brief
-	 */
-	void createCommandPool();
+	
 
 	/**
 	 * @brief Physical Device(GPU) 선택
@@ -182,9 +182,19 @@ private:
 	void createSwapchain();
 
 	/**
+	 * @brief 
+	 */
+	void createImageViews();
+
+	/**
 	 * @brief 어떤 컨텐츠로 렌더링 작업을 처리해야하는 지 등을 render pass에 랩핑하기 위해 생성.
 	 */
 	void createRenderPass();
+
+	/**
+	 * @brief pipeline 생성 전에 shader안에서 사용되는 모든 descriptor binding에 대한 세부사항을 제공.
+	 */
+	void createDescriptorSetLayout();
 
 	/**
 	 * @brief graphic pipeline 생성
@@ -195,6 +205,72 @@ private:
 	 * @brief frame buffer 생성
 	 */
 	void createFramebuffers();
+
+	/**
+	 * @brief
+	 */
+	void createCommandPool();
+
+	/**
+	 * @brief Texture Image를 생성합니다.
+	 */
+	void createTextureImage();
+
+	/**
+	 * @brief Texture의 ImageView를 생성합니다.
+	 */
+	void createTextureImageView();
+
+	/**
+	 * @brief TextureSampler를 생성합니다.
+	 * @details sampler : shader가 image를 읽기 위한 형식(필터링 및 변환을 적용 가능)
+	 */
+	void createTextureSampler();
+
+	/**
+	 * @brief
+	 */
+	VkImageView createImageView(VkImage image, VkFormat format);
+
+	/**
+	 * @brief
+	 */
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+
+	/**
+	 * @brief Image를 올바른 layout으로 전환한다.
+	 */
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+
+	/**
+	 * @brief
+	 */
+	void copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height);
+
+	/**
+	 * @brief vertex buffer 생성
+	 */
+	void createVertexBuffer();
+
+	/**
+	 * @brief index buffer 생성
+	 */
+	void createIndexBuffer();
+
+	/**
+	 * @brief
+	 */
+	void createUniformBuffers();
+
+	/**
+	 * @brief
+	 */
+	void createDescriptorPool();
+
+	/**
+	 * @brief
+	 */
+	void createDescriptorSets();
 
 	/**
 	 * @brief command buffer 생성
@@ -211,16 +287,6 @@ private:
 	 * @brief 
 	 */
 	void recreateSwapchain();
-
-	/**
-	 * @brief vertex buffer 생성
-	 */
-	void createVertexBuffer();
-
-	/**
-	 * @brief index buffer 생성
-	 */
-	void createIndexBuffer();
 
 	/**
 	 * @brief 버퍼 생성
@@ -240,32 +306,21 @@ private:
 	 */
 	void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size);
 
-	/**
-	 * @brief 
-	 */
-	void createUniformBuffers();
-
-	/**
-	 * @brief pipeline 생성 전에 shader안에서 사용되는 모든 descriptor binding에 대한 세부사항을 제공.
-	 */
-	void createDescriptorSetLayout();
-
+	
 	/**
 	 * @brief uniformBuffer를 업데이트 합니다.
 	 */
 	void updateUniformBuffer(uint32_t currentImage);
 
 	/**
-	 * @brief
+	 * @brief command buffer를 다시 기록하고 실행하는 도우미 함수 begin
 	 */
-	void createDescriptorPool();
+	VkCommandBuffer beginSingleTimeCommands();
 
 	/**
-	 * @brief
+	 * @brief command buffer를 다시 기록하고 실행하는 도우미 함수 end
 	 */
-	void createDescriptorSets();
-
-	void createImageViews();
+	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
 	void mainLoop();
 	void cleanup();
@@ -326,16 +381,27 @@ private:
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
 
+	//-------------------------------- Texture
+	VkBuffer _stagingBuffer;
+	VkDeviceMemory _stagingBufferMemory;
+
+	VkImage _textureImage;
+	VkDeviceMemory _textureImageMemory;
+
+	VkImageView _textureImageView;
+	VkSampler _textureSampler;
+
 	std::vector<VkBuffer> _uniformBuffers;
 	std::vector<VkDeviceMemory> _uniformBuffersMemory;
+
 
 	GLFWwindow* _window;
 
 	const std::vector<Vertex> _vertices = {
-		{ { -0.5f, -0.5f },{ 1.0f, 0.0f, 0.0f } }, // red
-		{ { 0.5f, -0.5f },{ 0.0f, 1.0f, 0.0f } }, // green
-		{ { 0.5f, 0.5f },{ 0.0f, 0.0f, 1.0f } }, // blue
-		{ { -0.5f, 0.5f },{ 1.0f, 1.0f, 1.0f } } // white
+		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
 	};
 	const std::vector<uint16_t> _indices = { 0, 1, 2, 2, 3, 0 };
 

@@ -1,139 +1,9 @@
 ﻿#include "VulkanRenderer.h"
+
 #include "FileSystem.h"
 
-
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
-const std::string engineName = "BKEngine";
-
-#ifdef NDEBUG
-const bool enableValidationLayers = false;
-#else
-const bool enableValidationLayers = true;
-#endif
-
-const std::vector<const char*> deviceExtensions = { VK_KHR_SWAPCHAIN_EXTENSION_NAME };
-
-const std::vector<const char*> validationLayers = { "VK_LAYER_KHRONOS_validation" };
-
-const int MAX_FRAMES_IN_FLIGHT = 2;
-
-#pragma region HelpFunction
-
-void DestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger, const VkAllocationCallbacks* pAllocator) {
-	auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-	if (func != nullptr) {
-		func(instance, debugMessenger, pAllocator);
-	}
-}
-
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats)
-{
-	for (const auto& availableFormat : availableFormats)
-	{
-		if (availableFormat.format == VK_FORMAT_B8G8R8A8_SRGB && availableFormat.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
-			return availableFormat;
-	}
-	return availableFormats[0];
-}
-
-VkPresentModeKHR chooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes)
-{
-	for (const auto& availablePresentMode : availablePresentModes)
-	{
-		if (availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR)
-			return availablePresentMode;
-	}
-	return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-bool checkDeviceExtensionSupport(VkPhysicalDevice device)
-{
-	uint32_t extensionCount;
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, nullptr);
-
-	std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-	vkEnumerateDeviceExtensionProperties(device, nullptr, &extensionCount, availableExtensions.data());
-
-	std::set<std::string> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
-	for (const auto& extension : availableExtensions) {
-		requiredExtensions.erase(extension.extensionName);
-	}
-
-	return requiredExtensions.empty();
-}
-
-bool checkAvailableInstanceExtensions(std::vector<VkExtensionProperties> & available_extensions)
-{
-	uint32_t extensions_count = 0;
-	VkResult result = VK_SUCCESS;
-
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensions_count, nullptr);
-	if ((result != VK_SUCCESS) || (extensions_count == 0))
-	{
-		std::cout << "Could not get the number of instance extensions." << std::endl;
-		return false;
-	}
-
-	available_extensions.resize(extensions_count);
-	result = vkEnumerateInstanceExtensionProperties(nullptr, &extensions_count, available_extensions.data());
-	if ((result != VK_SUCCESS) || (extensions_count == 0))
-	{
-		std::cout << "Could not enumerate instance extensions." << std::endl;
-		return false;
-	}
-
-	return true;
-}
-
-bool checkValidationLayerSupport()
-{
-	uint32_t layerCount;
-	vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
-
-	std::vector<VkLayerProperties> availableLayers(layerCount);
-	vkEnumerateInstanceLayerProperties(&layerCount, availableLayers.data());
-
-
-
-	bool layerFound = false;
-	for (const char* layerName : validationLayers)
-	{
-		layerFound = false;
-		for (const auto& layerProperties : availableLayers)
-		{
-			if (strcmp(layerName, layerProperties.layerName) == 0)
-			{
-				layerFound = true;
-				break;
-			}
-		}
-
-		if (!layerFound) return false;
-	}
-
-	return true;
-}
-
-std::vector<const char*> getRequiredExtensions()
-{
-	uint32_t glfwExtensionCount = 0;
-	const char** glfwExtensions;
-	glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-	std::vector<const char*> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
-
-	if (enableValidationLayers)
-	{
-		extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-	}
-
-	return extensions;
-}
-
-#pragma endregion
-
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 
 void VulkanRenderer::initVulkan()
@@ -152,6 +22,10 @@ void VulkanRenderer::initVulkan()
 	createGraphicsPipeline();
 	createFramebuffers();
 	createCommandPool();
+
+	createTextureImage();
+	createTextureImageView();
+	createTextureSampler();
 
 	createVertexBuffer();
 	createIndexBuffer();
@@ -183,6 +57,19 @@ void VulkanRenderer::recreateSwapchain()
 	createFramebuffers();
 }
 
+void VulkanRenderer::createUniformBuffers()
+{
+	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+
+	_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
+	_uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+
+	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+	{
+		createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
+	}
+}
+
 
 void VulkanRenderer::createDescriptorSets()
 {
@@ -211,35 +98,73 @@ void VulkanRenderer::createDescriptorSets()
 			sizeof(UniformBufferObject) // range
 		};
 
-		VkWriteDescriptorSet descriptorWrite{
-			VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, // type
-			nullptr,								// next 
-			_descriptorSets[i],						// descriptor set dst
-			0,										// dstBinding
-			0,										// dst Array Element
-			1,										// descriptor Count
-			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,		// descriptor Type
-			nullptr,								// image info
-			&bufferInfo,							// buffer info
-			nullptr									// texel buffer view
+		VkDescriptorImageInfo imageInfo{
+			_textureSampler,							// sampler
+			_textureImageView,							// image view
+			VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL	// image layout
 		};
 
-		vkUpdateDescriptorSets(_logicalDevice, 1, &descriptorWrite, 0, nullptr);
+		std::array<VkWriteDescriptorSet, 2> descriptorWrites{
+			VkWriteDescriptorSet{ // ubo
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, // type
+				nullptr,								// next 
+				_descriptorSets[i],						// descriptor set dst
+				0,										// dstBinding
+				0,										// dst Array Element
+				1,										// descriptor Count
+				VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,		// descriptor Type
+				nullptr,								// image info
+				&bufferInfo,							// buffer info
+				nullptr									// texel buffer view
+			},
+			VkWriteDescriptorSet{ // sampler
+				VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,		// type
+				nullptr,									// next 
+				_descriptorSets[i],							// descriptor set dst
+				1,											// dstBinding
+				0,											// dst Array Element
+				1,											// descriptor Count
+				VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	// descriptor Type
+				&imageInfo,									// image info
+				nullptr,									// buffer info
+				nullptr										// texel buffer view
+			}
+		};
+	
+		vkUpdateDescriptorSets(_logicalDevice, descriptorWrites.size(), descriptorWrites.data(), 0, nullptr);
 	}
 }
 
-void VulkanRenderer::createUniformBuffers()
+void VulkanRenderer::createDescriptorPool()
 {
-	VkDeviceSize bufferSize = sizeof(UniformBufferObject);
+	// 어떤 descriptor type을 우리의 descriptor set에 담을지 그리고 그게 얼마나 많을지를 기술
+	std::array <VkDescriptorPoolSize, 2> poolSizes{
+		VkDescriptorPoolSize{  // ubo
+			VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
+			static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)},	// descriptor Count
+		VkDescriptorPoolSize{ // sampler
+			VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,			// type
+			static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)},	// descriptor Count
+	};
 
-	_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
-	_uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+	VkDescriptorPoolCreateInfo poolInfo{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,		// type
+		nullptr,											// next
+		0,													// descriptor pool create flag
+		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),		// max sets
+		static_cast<uint32_t>(poolSizes.size()),			// pool size count
+		poolSizes.data()									// pool sizes data
+	};
 
-	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+
+	if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &_descriptorPool) != VK_SUCCESS)
 	{
-		createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
+		throw std::runtime_error("failed to create descriptor pool!");
 	}
 }
+
+
+
 
 void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 {
@@ -265,60 +190,7 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 	vkUnmapMemory(_logicalDevice, _uniformBuffersMemory[currentImage]);
 }
 
-void VulkanRenderer::createDescriptorPool()
-{
-	// 어떤 descriptor type을 우리의 descriptor set에 담을지 그리고 그게 얼마나 많을지를 기술
-	VkDescriptorPoolSize poolSize{
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,				// type
-		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)	// descriptor Count
-	};
 
-	VkDescriptorPoolCreateInfo poolInfo{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,		// type
-		nullptr,											// next
-		0,													// descriptor pool create flag
-		static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT),		// max sets
-		1,													// pool size count
-		&poolSize											// pool sizes
-	};
-
-
-	if (vkCreateDescriptorPool(_logicalDevice, &poolInfo, nullptr, &_descriptorPool) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor pool!");
-	}
-}
-
-void VulkanRenderer::createDescriptorSetLayout()
-{
-	// descriptor은 shader가 자유롭게 buffer나 image 같은 리소스를 액세스하는 것에 대한 방법.
-	// 1. pipeline 생성동안 descriptor layout을 설정합니다.
-	// 2. descriptor pool에서 descriptor set을 할당합니다.
-	// 3. rendering동안 descriptor set을 바인드합니다.
-
-	// binding 기술
-	VkDescriptorSetLayoutBinding uboLayoutBinding = {
-		0,									// shader binding
-		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,	// shader descriptorType
-		1,									// descriptor Count 배열안의 몇 개의 변수가 있는지
-		VK_SHADER_STAGE_VERTEX_BIT,			// Shader stage Flag
-		nullptr,							// image sampler
-	};
-	
-	VkDescriptorSetLayoutCreateInfo layoutInfo{
-		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,	// type
-		nullptr,												// next
-		0,														// DescriptorSetLayoutCreate Flags
-		1,														// binding count
-		&uboLayoutBinding										// bindings
-	};
-
-	// 모든 descriptor binding은 _descriptorSetLayout( VkDescriptorSetLayout )으로 결합된다.
-	if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &_descriptorSetLayout) != VK_SUCCESS)
-	{
-		throw std::runtime_error("failed to create descriptor set layout!");
-	}	
-}
 
 void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t imageIndex)
 {
@@ -663,6 +535,12 @@ void VulkanRenderer::cleanup()
 	}
 
 	vkDestroyDescriptorPool(_logicalDevice, _descriptorPool, nullptr);
+
+	vkDestroySampler(_logicalDevice, _textureSampler, nullptr);
+	vkDestroyImageView(_logicalDevice, _textureImageView, nullptr);
+	vkDestroyImage(_logicalDevice, _textureImage, nullptr);
+	vkFreeMemory(_logicalDevice, _textureImageMemory, nullptr);
+
 	vkDestroyDescriptorSetLayout(_logicalDevice, _descriptorSetLayout, nullptr);
 
 	vkDestroyBuffer(_logicalDevice, _indexBuffer, nullptr);
@@ -965,26 +843,52 @@ void VulkanRenderer::createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, V
 	vkBindBufferMemory(_logicalDevice, buffer, bufferMemory, 0);
 }
 
-VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
+
+void VulkanRenderer::createDescriptorSetLayout()
 {
-	//  VkShaderModule 오브젝트로 shader 랩핑.
-	VkShaderModuleCreateInfo createInfo{};
-	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-	createInfo.codeSize = code.size();
-	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+	// descriptor은 shader가 자유롭게 buffer나 image 같은 리소스를 액세스하는 것에 대한 방법.
+	// 1. pipeline 생성동안 descriptor layout을 설정합니다.
+	// 2. descriptor pool에서 descriptor set을 할당합니다.
+	// 3. rendering동안 descriptor set을 바인드합니다.
+	// binding 기술
+	VkDescriptorSetLayoutBinding uboLayoutBinding = {
+		0,									// shader binding
+		VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,	// shader descriptorType
+		1,									// descriptor Count 배열안의 몇 개의 변수가 있는지
+		VK_SHADER_STAGE_VERTEX_BIT,			// Shader stage Flag
+		nullptr,							// image sampler
+	};
 
-	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(_logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
-		throw std::runtime_error("failed to create shader module!");
+	VkDescriptorSetLayoutBinding samplerLayoutBinding{
+		1,											// shader binding
+		VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,	// shader descriptorType
+		1,											// descriptor Count 배열안의 몇 개의 변수가 있는지
+		VK_SHADER_STAGE_FRAGMENT_BIT,				// Shader stage Flag
+		nullptr,									// image sampler
+	};
 
-	return shaderModule;
+	std::array<VkDescriptorSetLayoutBinding, 2> bindings = { uboLayoutBinding, samplerLayoutBinding };
+
+	VkDescriptorSetLayoutCreateInfo layoutInfo{
+		VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,	// type
+		nullptr,												// next
+		0,														// DescriptorSetLayoutCreate Flags
+		static_cast<uint32_t>(bindings.size()),					// binding count
+		bindings.data()											// pBindings
+	};
+
+	// 모든 descriptor binding은 _descriptorSetLayout( VkDescriptorSetLayout )으로 결합된다.
+	if (vkCreateDescriptorSetLayout(_logicalDevice, &layoutInfo, nullptr, &_descriptorSetLayout) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create descriptor set layout!");
+	}
 }
 
 void VulkanRenderer::createGraphicsPipeline()
 {
 	//----------------------------------------------------------------------------------------------------------
-	auto vertShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\vert_ubo.spv");
-	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag_ubo.spv");
+	auto vertShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\vert_image.spv");
+	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag_image.spv");
 	//auto computeShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\shader.comp.spv");
 
 	// 파이프라인에 코드를 전달하기 위해 VkShaderModule 오브젝트로 랩핑 해야함.
@@ -1363,6 +1267,22 @@ void VulkanRenderer::createSwapchain()
 	
 }
 
+VkShaderModule VulkanRenderer::createShaderModule(const std::vector<char>& code)
+{
+	//  VkShaderModule 오브젝트로 shader 랩핑.
+	VkShaderModuleCreateInfo createInfo{};
+	createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	createInfo.codeSize = code.size();
+	createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
+
+	VkShaderModule shaderModule;
+	if (vkCreateShaderModule(_logicalDevice, &createInfo, nullptr, &shaderModule) != VK_SUCCESS)
+		throw std::runtime_error("failed to create shader module!");
+
+	return shaderModule;
+}
+
+
 void VulkanRenderer::createLogicalDevice()
 {
 	QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
@@ -1622,6 +1542,298 @@ void VulkanRenderer::createCommandPool()
 		std::cout << "Could not create command pool." << std::endl;
 		return;
 	}
+}
+
+void VulkanRenderer::createTextureSampler()
+{
+	VkPhysicalDeviceProperties properties{};
+	vkGetPhysicalDeviceProperties(_physicalDevice, &properties);
+
+	VkSamplerCreateInfo samplerInfo{
+		VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,	// type
+		nullptr,								// next
+		0,										// Sampler create flag
+		VK_FILTER_LINEAR,						// mag filter - 확대, 축소된 texel을 보간하는 방법을 지정
+		VK_FILTER_LINEAR,						// min filter- 확대, 축소된 texel을 보간하는 방법을 지정
+		VK_SAMPLER_MIPMAP_MODE_LINEAR,			// mipmapMode
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,			// addressModeU
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,			// addressModeV
+		VK_SAMPLER_ADDRESS_MODE_REPEAT,			// addressModeW
+		0.0f,									// mip Lod Bias
+		VK_TRUE,								// anisotropy Enable
+		properties.limits.maxSamplerAnisotropy, // max Anisotropy
+		VK_FALSE,								// compare Enable
+		VK_COMPARE_OP_ALWAYS,					// compare OP
+		0.0f,									// min Lod
+		0.0f,									// max Lod
+		VK_BORDER_COLOR_INT_OPAQUE_BLACK,		// border color
+		VK_FALSE								// unnormalized coordinate - image의 texel을 지정하는데 사용할 좌표계 지정
+	};
+
+
+	if (vkCreateSampler(_logicalDevice, &samplerInfo, nullptr, &_textureSampler) != VK_SUCCESS) 
+	{
+		throw std::runtime_error("failed to create texture sampler!");
+	}
+}
+
+void VulkanRenderer::createTextureImageView()
+{
+	_textureImageView = createImageView(_textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format)
+{
+	VkImageViewCreateInfo viewInfo{
+		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// type
+		nullptr,									// nullptr
+		0,											// image view create flag
+		image,										// image
+		VK_IMAGE_VIEW_TYPE_2D,						// image view type
+		format,										// format
+		VkComponentMapping{},						// component
+		VkImageSubresourceRange{
+			VK_IMAGE_ASPECT_COLOR_BIT,	// aspect mask
+			0,							// base mip level
+			1,							// level count
+			0,							// base array layer
+			1}							// layer count
+	};
+
+	VkImageView imageView;
+	if (vkCreateImageView(_logicalDevice, &viewInfo, nullptr, &imageView) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to create texture image view!");
+	}
+
+	return imageView;
+}
+
+void VulkanRenderer::createTextureImage()
+{
+	int texWidth, texHeight, texChannels;
+	// STBI_rgb_alpha : alpha 채널이 없어도 이미지를 강제 로드 하므로 향후 다른 텍스처와의 일관성에 좋다.
+	stbi_uc* pixels = stbi_load("F:\\yuiena\\Engine\\Project\\res\\textures\\texture.png", &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+	VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+	if (!pixels) 
+	{
+		throw std::runtime_error("failed to load texture image!");
+	}
+
+	// image buffer를 전송할 수 있는 staging buffer, memory 생성
+	createBuffer(imageSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _stagingBuffer, _stagingBufferMemory);
+
+	// staging buffer memory에 pixel 복사.
+	void* data;
+	vkMapMemory(_logicalDevice, _stagingBufferMemory, 0, imageSize, 0, &data);
+	memcpy(data, pixels, static_cast<size_t>(imageSize));
+	vkUnmapMemory(_logicalDevice, _stagingBufferMemory);
+
+	// pixel free
+	stbi_image_free(pixels);
+
+	// 이미지 생성
+	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _textureImage, _textureImageMemory);
+
+	// image layout 전환
+	transitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	// staging buffer에 image copy
+	copyBufferToImage(_stagingBuffer, _textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+
+	//shader texture image에서 sampling을 시작하려면 shader access를 준비하기 위해 마지막 전환필요
+	transitionImageLayout(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+	vkDestroyBuffer(_logicalDevice, _stagingBuffer, nullptr);
+	vkFreeMemory(_logicalDevice, _stagingBufferMemory, nullptr);
+}
+
+void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
+{
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+	VkBufferImageCopy region
+	{
+		0,						// buffer offset
+		0,						// buffer row length
+		0,						// buffer image height
+		VkImageSubresourceLayers{
+			VK_IMAGE_ASPECT_COLOR_BIT,	//aspec mask
+			0,							// mip Level
+			0,							// base array layer
+			1},							// layer count
+		VkOffset3D{0, 0, 0},
+		VkExtent3D{width, height, 1},
+		
+	};
+
+	vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+	endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+{
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+	// layout 전환을 수행하는 가장 일반적인 방법 중 하나는 image memory barrier를 사용하는 것이다.
+	// 이와 같은 pipeline barrier는 일반적으로 buffer에서 읽기 전에 쓰기가 완료되도록 하는 것과 같이 리소스에 대한 액세스를 동기화 하는데 
+	// 사용되지만 사용될 때 image layout을 전환하고 queue family 소유권을 이전하는데도 사용할 수 있다.
+	VkImageMemoryBarrier barrier{
+		VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER, // type
+		nullptr,								// next
+		0,										// src access mask
+		0,										// dst access mask
+		oldLayout,								// image layout old
+		newLayout,								// image layout new
+		VK_QUEUE_FAMILY_IGNORED,				// src queue family index (queue family index를 이전하지 않을 시 VK_QUEUE_FAMILY_IGNORED)
+		VK_QUEUE_FAMILY_IGNORED,				// dst queue family index
+		image,									// image
+		VkImageSubresourceRange{
+			VK_IMAGE_ASPECT_COLOR_BIT,	// aspect mask
+			0,							// base mip level
+			1,							// level count
+			0,							// base array layer
+			1}							// layer count
+	};
+	
+	VkPipelineStageFlags sourceStage;
+	VkPipelineStageFlags destinationStage;
+
+	// transition layout 기반으로 설정해야하는 두가지 전환
+	// Undefined  : 전송대상 - 아무 것도 기다릴 필요가 없는 전송 쓰기
+	// Transfer destination  : Shader 읽기 - Shader 읽기는 fragment shader에서 대기해야합니다. 바로 여기에 texture를 사용할 것이기 떄문입니다.
+	if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) 
+	{
+		// VK_ACCESS_HOST_WRITE_BIT 는 처음에 암시적인 동기화를 초래함으로 주의해야하며 처음엔 0으로 설정.
+		barrier.srcAccessMask = 0;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+		destinationStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+	}
+	else if (oldLayout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) 
+	{
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		sourceStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		destinationStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+	}
+	else 
+	{
+		throw std::invalid_argument("unsupported layout transition!");
+	}
+
+	vkCmdPipelineBarrier(
+		commandBuffer,		// command buffer
+		sourceStage,		// src stage mask
+		destinationStage,	// dst stage mask
+		0,					// dependency flag
+		0,					// memoryh barrier count
+		nullptr,			// memory barriers
+		0,					// buffer memory barrier count
+		nullptr,			// buffer memory barriers
+		1,					// image memory barrier count
+		&barrier			// image memory barriers
+	);
+
+	endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)
+{
+	VkImageCreateInfo imageInfo
+	{
+		VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,// type
+		nullptr,							// next
+		0,									// Image Create Flag
+		VK_IMAGE_TYPE_2D,					// Image Type
+		format,								// Format
+		VkExtent3D{width, height, 1},		// exten3D
+		1,									// mipLevels
+		1,									// array Layers
+		VK_SAMPLE_COUNT_1_BIT,				// sample Count Flag Bits
+		tiling,								// Image Tiling
+		usage,								// Image Usage Flag
+		VK_SHARING_MODE_EXCLUSIVE,			// sharing Mode
+		0,									// queue family index count
+		nullptr,							// queue family indices
+		VK_IMAGE_LAYOUT_UNDEFINED			// initial layout
+	};
+
+	if (vkCreateImage(_logicalDevice, &imageInfo, nullptr, &image) != VK_SUCCESS) 
+	{
+		throw std::runtime_error("failed to create image!");
+	}
+
+	// buffer에 메모리를 할당하는 것과 정확히 같은 방식으로 동작. vkGetBufferMemoryRequirement대신 vkGetImageMemoryRequirements를 사용한다.
+	VkMemoryRequirements memRequirements;
+	vkGetImageMemoryRequirements(_logicalDevice, image, &memRequirements);
+
+	VkMemoryAllocateInfo allocInfo
+	{
+		VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,						// type
+		nullptr,													// next
+		memRequirements.size,										// allocation size
+		findMemoryType(memRequirements.memoryTypeBits, properties)	// memory Type index
+	};
+
+	if (vkAllocateMemory(_logicalDevice, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS)
+	{
+		throw std::runtime_error("failed to allocate image memory!");
+	}
+
+	vkBindImageMemory(_logicalDevice, image, imageMemory, 0);
+}
+
+VkCommandBuffer VulkanRenderer::beginSingleTimeCommands()
+{
+	VkCommandBufferAllocateInfo allocInfo
+	{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, // type
+		nullptr,										// next
+		_commandPool,									// command pool
+		VK_COMMAND_BUFFER_LEVEL_PRIMARY,				// buffer level
+		1												// command buffer count
+	};
+
+	VkCommandBuffer commandBuffer;
+	vkAllocateCommandBuffers(_logicalDevice, &allocInfo, &commandBuffer);
+
+	VkCommandBufferBeginInfo beginInfo{
+		VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,	// type
+		nullptr,										// next
+		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,	// buffer usage flag
+		nullptr											// buffer inheritance info
+	};
+
+	vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+	return commandBuffer;
+}
+
+void VulkanRenderer::endSingleTimeCommands(VkCommandBuffer commandBuffer)
+{
+	vkEndCommandBuffer(commandBuffer);
+
+	VkSubmitInfo submitInfo{
+		VK_STRUCTURE_TYPE_SUBMIT_INFO,	// type
+		nullptr,						// next
+		0,								// wait semaphore count
+		nullptr,						// wait semaphore
+		nullptr,						// wait dest stage mask
+		1,								// command buffer count
+		&commandBuffer,					// command buffers
+		0,								// signal semaphore count
+		nullptr							// signal semaphore
+	};
+
+	vkQueueSubmit(_graphicQueue, 1, &submitInfo, VK_NULL_HANDLE);
+	vkQueueWaitIdle(_graphicQueue);
+
+	vkFreeCommandBuffers(_logicalDevice, _commandPool, 1, &commandBuffer);
 }
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
