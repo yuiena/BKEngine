@@ -182,9 +182,9 @@ private:
 	void createSwapchain();
 
 	/**
-	 * @brief 
+	 * @brief swapchain의 imageView를 생성합니다.
 	 */
-	void createImageViews();
+	void createSwapChainImageViews();
 
 	/**
 	 * @brief 어떤 컨텐츠로 렌더링 작업을 처리해야하는 지 등을 render pass에 랩핑하기 위해 생성.
@@ -194,12 +194,19 @@ private:
 	/**
 	 * @brief pipeline 생성 전에 shader안에서 사용되는 모든 descriptor binding에 대한 세부사항을 제공.
 	 */
-	void createDescriptorSetLayout();
+	void createGraphicsDescriptorSetLayout();
 
 	/**
 	 * @brief graphic pipeline 생성
 	 */
 	void createGraphicsPipeline();
+
+
+	/**
+	 * @brief graphic pipeline 생성
+	 */
+	void createComputePipeline();
+
 
 	/**
 	 * @brief frame buffer 생성
@@ -209,12 +216,12 @@ private:
 	/**
 	 * @brief
 	 */
-	void createCommandPool();
+	void createCommandPool(uint32_t familyIndex, VkCommandPool& commandPool);
 
 	/**
 	 * @brief Texture Image를 생성합니다.
 	 */
-	void createTextureImage();
+	void loadTextureImage(const std::string& path, VkImage& targetImage, VkDeviceMemory targetTextureMemory);
 
 	/**
 	 * @brief Texture의 ImageView를 생성합니다.
@@ -225,7 +232,7 @@ private:
 	 * @brief TextureSampler를 생성합니다.
 	 * @details sampler : shader가 image를 읽기 위한 형식(필터링 및 변환을 적용 가능)
 	 */
-	void createTextureSampler();
+	VkSampler createTextureSampler(VkSamplerAddressMode u, VkSamplerAddressMode v, VkSamplerAddressMode w, VkCompareOp compareOp, VkBorderColor borderColor);
 
 	/**
 	 * @brief
@@ -235,7 +242,8 @@ private:
 	/**
 	 * @brief
 	 */
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory);
+	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+		 VkImage& image, VkDeviceMemory& imageMemory, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices);
 
 	/**
 	 * @brief Image를 올바른 layout으로 전환한다.
@@ -322,6 +330,13 @@ private:
 	 */
 	void endSingleTimeCommands(VkCommandBuffer commandBuffer);
 
+	/**
+	 * @brief 
+	 */
+	void dispatchCompute(VkCommandBuffer command_buffer, uint32_t x_size, uint32_t y_size, uint32_t z_size);
+
+	void Test();
+
 	void mainLoop();
 	void cleanup();
 	void cleanupSwapchain();
@@ -342,35 +357,48 @@ private:
 	VkDevice			_logicalDevice;
 	VkPhysicalDevice	_physicalDevice = VK_NULL_HANDLE;
 
-	VkCommandPool	_commandPool;
-	std::vector<VkCommandBuffer> _commandBuffers;
-
-	VkQueue _graphicQueue;
-	VkQueue _computeQueue;
-	VkQueue _presentQueue;
-
 	VkSurfaceKHR _surface;
+
+	
+	VkQueue _presentQueue;
 
 	SwapchainParameters _swapchain;
 	VkRenderPass		_renderPass;
 
-	VkDescriptorSetLayout	_descriptorSetLayout;
-	VkDescriptorPool		_descriptorPool;
-	std::vector<VkDescriptorSet> _descriptorSets;
 
+	struct Graphic {
+		VkCommandPool					commandPool;
+		std::vector<VkCommandBuffer>	commandBuffers;
+		VkDescriptorSetLayout			descriptorSetLayout;
+		VkDescriptorPool				descriptorPool;
+		std::vector<VkDescriptorSet>	descriptorSets;
+		VkPipelineLayout				pipelineLayout;
+		VkPipeline						pipeline;
+		VkQueue							queue;
+		VkSemaphore						semaphore;
+	} _graphic;
 
-	VkPipelineLayout	_pipelineLayout;
-	VkPipeline			_graphicsPipeline;
+	
+	struct Compute {
+		VkImageView						imageView;
+		VkSampler						sampler;
+		std::vector<VkCommandBuffer>	commandBuffers;	// Command buffer storing the dispatch commands and barriers
+		VkCommandPool					commandPool;	// Use a separate command pool (queue family may differ from the one used for graphics)
+		VkDescriptorSetLayout			descriptorSetLayout;
+		std::vector<VkDescriptorSet>	descriptorSets;	// Compute shader bindings
+		VkPipelineLayout				pipelineLayout;
+		VkPipeline						pipeline;		// Compute pipelines for image filters
+		VkQueue							queue;			// Separate queue for compute commands (queue family may differ from the one used for graphics)
+		VkSemaphore						semaphore;		// Execution dependency between compute & graphic submission
+	}_compute;
 
-	VkPipelineLayout	_computePipelineLayout;
-	VkPipeline			_computePipeline;
-
-	std::vector<VkSemaphore> _imageAvailableSemaphores;
-	std::vector<VkSemaphore> _renderFinishedSemaphores;
+	std::vector<VkSemaphore> _presentCompeleteSemaphores;
+	std::vector<VkSemaphore> _renderCompeletedSemaphores;
 	std::vector<VkFence>	_inFlightFences;
 	uint32_t _currentFrame = 0;
 
-	
+	// Pipeline cache object
+	VkPipelineCache _pipelineCache;
 
 	ImageTransition _imageTransition;
 
@@ -381,6 +409,9 @@ private:
 	VkBuffer _indexBuffer;
 	VkDeviceMemory _indexBufferMemory;
 
+	std::vector<VkBuffer> _uniformBuffers;
+	std::vector<VkDeviceMemory> _uniformBuffersMemory;
+
 	//-------------------------------- Texture
 	VkBuffer _stagingBuffer;
 	VkDeviceMemory _stagingBufferMemory;
@@ -390,9 +421,9 @@ private:
 
 	VkImageView _textureImageView;
 	VkSampler _textureSampler;
+	//--------------------
 
-	std::vector<VkBuffer> _uniformBuffers;
-	std::vector<VkDeviceMemory> _uniformBuffersMemory;
+	
 
 
 	GLFWwindow* _window;
