@@ -390,7 +390,7 @@ private:
 		VkPipeline						pipeline;		// Compute pipelines for image filters
 		VkQueue							queue;			// Separate queue for compute commands (queue family may differ from the one used for graphics)
 		VkSemaphore						semaphore;		// Execution dependency between compute & graphic submission
-	}_compute;
+	} _compute;
 
 	std::vector<VkSemaphore> _presentCompeleteSemaphores;
 	std::vector<VkSemaphore> _renderCompeletedSemaphores;
@@ -399,7 +399,6 @@ private:
 
 	// Pipeline cache object
 	VkPipelineCache _pipelineCache;
-
 	ImageTransition _imageTransition;
 
 	//--------------------------------Shader
