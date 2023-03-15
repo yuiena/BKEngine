@@ -33,7 +33,7 @@ void VulkanRenderer::initVulkan()
 	createCommandPool(indices.graphic.familyIndex, _graphic.commandPool);
 
 	//---------------------------------------------------- load texture & create imagewView and sampler
-	loadTextureImage("F:\\yuiena\\Engine\\Project\\res\\textures\\texture.png", _textureImage, _textureImageMemory);
+	loadTextureImage("C:\\workspace\\Github\\BKEngine\\Project\\res\\textures\\texture.png", _textureImage, _textureImageMemory);
 	createTextureImageView();
 	_textureSampler = createTextureSampler(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		VK_COMPARE_OP_ALWAYS, VK_BORDER_COLOR_INT_OPAQUE_BLACK);
@@ -1015,7 +1015,7 @@ void VulkanRenderer::createComputePipeline()
 {
 	//---------------------------------------------------- create Compute Pipeline
 
-	auto computeShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\emboss.comp.spv");
+	auto computeShaderCode = readFile("C:\\workspace\\Github\\BKEngine\\Project\\res\\shader\\emboss.comp.spv");
 
 	VkShaderModule computeShaderModule = createShaderModule(computeShaderCode);
 
@@ -1110,8 +1110,8 @@ void VulkanRenderer::createComputePipeline()
 void VulkanRenderer::createGraphicsPipeline()
 {
 	//----------------------------------------------------------------------------------------------------------
-	auto vertShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\vert_image.spv");
-	auto fragShaderCode = readFile("F:\\yuiena\\Engine\\Project\\res\\shader\\frag_image.spv");
+	auto vertShaderCode = readFile("C:\\workspace\\Github\\BKEngine\\Project\\res\\shader\\vert_image.spv");
+	auto fragShaderCode = readFile("C:\\workspace\\Github\\BKEngine\\Project\\res\\shader\\frag_image.spv");
 
 
 	// 파이프라인에 코드를 전달하기 위해 VkShaderModule 오브젝트로 랩핑 해야함.
