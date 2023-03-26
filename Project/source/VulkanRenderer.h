@@ -5,7 +5,7 @@
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-
+#include <glm/gtx/hash.hpp>
 
 #include "VulkanHelper.h"
 
@@ -18,7 +18,7 @@
 #include <cstdint>
 #include <limits>
 #include <array>
-
+#include <unordered_map>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
 	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
@@ -85,7 +85,7 @@ struct QueueFamilyIndices
 
 struct Vertex
 {
-	glm::vec2 pos;
+	glm::vec3 pos;
 	glm::vec3 color;
 	glm::vec2 texCoord;
 	/**
@@ -113,7 +113,7 @@ struct Vertex
 
 		attributeDescriptions[0].binding = 0;						// vertex별 데이터의 binding index
 		attributeDescriptions[0].location = 0;						// vertex shader에서 input의 location index
-		attributeDescriptions[0].format = VK_FORMAT_R32G32_SFLOAT;	// attribute data의 byte크기를 암시적으로 정의
+		attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;	// attribute data의 byte크기를 암시적으로 정의
 		attributeDescriptions[0].offset = offsetof(Vertex, pos);	// vertex별 데이터 시작 이후 byte offset 지정.
 
 		attributeDescriptions[1].binding = 0;
@@ -123,12 +123,25 @@ struct Vertex
 
 		attributeDescriptions[2].binding = 0;
 		attributeDescriptions[2].location = 2;
-		attributeDescriptions[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+		attributeDescriptions[2].format = VK_FORMAT_R32G32_SFLOAT;
 		attributeDescriptions[2].offset = offsetof(Vertex, texCoord);
 
 		return attributeDescriptions;
 	}
+
+	bool operator==(const Vertex& other) const 
+	{
+		return pos == other.pos && color == other.color && texCoord == other.texCoord;
+	}
 };
+
+namespace std {
+	template<> struct hash<Vertex> {
+		size_t operator()(Vertex const& vertex) const {
+			return ((hash<glm::vec3>()(vertex.pos) ^ (hash<glm::vec3>()(vertex.color) << 1)) >> 1) ^ (hash<glm::vec2>()(vertex.texCoord) << 1);
+		}
+	};
+}
 
 class VulkanRenderer
 {
@@ -218,6 +231,8 @@ private:
 	 */
 	void createCommandPool(uint32_t familyIndex, VkCommandPool& commandPool);
 
+	void createDepthResources();
+
 	/**
 	 * @brief Texture Image를 생성합니다.
 	 */
@@ -237,13 +252,14 @@ private:
 	/**
 	 * @brief
 	 */
-	VkImageView createImageView(VkImage image, VkFormat format);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
 
 	/**
 	 * @brief
 	 */
 	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
-		 VkImage& image, VkDeviceMemory& imageMemory, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices);
+		VkImage& image, VkDeviceMemory& imageMemory);
+	//, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices);
 
 	/**
 	 * @brief Image를 올바른 layout으로 전환한다.
@@ -335,7 +351,7 @@ private:
 	 */
 	void dispatchCompute(VkCommandBuffer command_buffer, uint32_t x_size, uint32_t y_size, uint32_t z_size);
 
-	void Test();
+	void loadModel();
 
 	void mainLoop();
 	void cleanup();
@@ -351,6 +367,9 @@ private:
 	SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
 	VkShaderModule createShaderModule(const std::vector<char>& code);
 	VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+	VkFormat findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features);
+	VkFormat findDepthFormat();
 
 	VkInstance _instance;
 
@@ -410,6 +429,7 @@ private:
 
 	std::vector<VkBuffer> _uniformBuffers;
 	std::vector<VkDeviceMemory> _uniformBuffersMemory;
+	std::vector<void*> _uniformBuffersMapped;
 
 	//-------------------------------- Texture
 	VkBuffer _stagingBuffer;
@@ -420,6 +440,10 @@ private:
 
 	VkImageView _textureImageView;
 	VkSampler _textureSampler;
+
+	VkImage _depthImage;
+	VkDeviceMemory _depthImageMemory;
+	VkImageView _depthImageView;
 	//--------------------
 
 	
@@ -427,13 +451,14 @@ private:
 
 	GLFWwindow* _window;
 
-	const std::vector<Vertex> _vertices = {
+	std::vector<Vertex> _vertices;
+		/*= {
 		{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
 		{{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
 		{{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
 		{{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
-	};
-	const std::vector<uint16_t> _indices = { 0, 1, 2, 2, 3, 0 };
+	};*/
+	std::vector<uint32_t> _indices;// = {0, 1, 2, 2, 3, 0};
 
 	struct UniformBufferObject 
 	{

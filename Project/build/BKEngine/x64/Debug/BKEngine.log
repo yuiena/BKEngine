@@ -1,5 +1,6 @@
-﻿  VulkanRenderer.cpp
-C:\workspace\Github\BKEngine\Project\source\VulkanRenderer.cpp(281,120): warning C4267: '인수': 'size_t'에서 'uint32_t'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\Github\BKEngine\Project\source\VulkanRenderer.cpp(317,102): warning C4267: '인수': 'size_t'에서 'uint32_t'(으)로 변환하면서 데이터가 손실될 수 있습니다.
-C:\workspace\Github\BKEngine\Project\source\VulkanRenderer.cpp(1721): warning C4172: 지역 변수 또는 임시: indices의 주소를 반환하고 있습니다.
+﻿  main.cpp
+  VulkanRenderer.cpp
+C:\workspace\Github\BKEngine\Project\source\VulkanRenderer.cpp(385,120): warning C4267: '인수': 'size_t'에서 'uint32_t'(으)로 변환하면서 데이터가 손실될 수 있습니다.
+  코드를 생성하고 있습니다...
+C:\workspace\Github\BKEngine\Project\source\VulkanRenderer.cpp(1871): warning C4172: 지역 변수 또는 임시: indices의 주소를 반환하고 있습니다.
   BKEngine.vcxproj -> C:\workspace\Github\BKEngine\Project\build\x64\Debug\BKEngine.exe

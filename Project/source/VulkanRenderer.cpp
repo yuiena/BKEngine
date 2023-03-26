@@ -5,13 +5,30 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
-#define USE_COMPUTE 1
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
 
+#define USE_COMPUTE 0
+
+const uint32_t WIDTH = 800;
+const uint32_t HEIGHT = 600;
+
+
+const std::string RES_PATH = "C:\\workspace\\Github\\BKEngine\\Project\\res\\";
+
+const std::string VERT_PATH = RES_PATH + "shader\\vert2.spv";
+const std::string FRAG_PATH = RES_PATH + "shader\\frag2.spv";
+
+
+const std::string MODEL_PATH = RES_PATH + "models\\viking_room.obj";
+const std::string TEXTURE_PATH = RES_PATH + "textures\\viking_room.png";
 
 int texWidth, texHeight, texChannels;
 
 void VulkanRenderer::initVulkan()
 {
+	
+
 	createInstance();
 	createSurface();
 	pickPhysicalDevice();
@@ -26,14 +43,18 @@ void VulkanRenderer::initVulkan()
 
 	createGraphicsPipeline();
 
-	createFramebuffers();
+	
 
 	QueueFamilyIndices indices = findQueueFamilies(_physicalDevice);
 	
 	createCommandPool(indices.graphic.familyIndex, _graphic.commandPool);
 
+	createDepthResources();
+
+	createFramebuffers();
+
 	//---------------------------------------------------- load texture & create imagewView and sampler
-	loadTextureImage("C:\\workspace\\Github\\BKEngine\\Project\\res\\textures\\texture.png", _textureImage, _textureImageMemory);
+	loadTextureImage(TEXTURE_PATH, _textureImage, _textureImageMemory);
 	createTextureImageView();
 	_textureSampler = createTextureSampler(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		VK_COMPARE_OP_ALWAYS, VK_BORDER_COLOR_INT_OPAQUE_BLACK);
@@ -67,6 +88,7 @@ void VulkanRenderer::initVulkan()
 #endif
 
 	//-------------------------------------- Buffer
+	loadModel();
 	createVertexBuffer();
 	createIndexBuffer();
 
@@ -186,13 +208,92 @@ void VulkanRenderer::initVulkan()
 #endif 
 }
 
+VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
+{
+	for (VkFormat format : candidates) 
+	{
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(_physicalDevice, format, &props);
+
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features) {
+			return format;
+		}
+		else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features) {
+			return format;
+		}
+	}
+
+	throw std::runtime_error("failed to find supported format!");
+}
+
+VkFormat VulkanRenderer::findDepthFormat() 
+{
+	return findSupportedFormat(
+		{ VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT },
+		VK_IMAGE_TILING_OPTIMAL,
+		VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
+	);
+}
+
+void VulkanRenderer::createDepthResources()
+{
+	VkFormat depthFormat = findDepthFormat();
+	
+	createImage(_swapchain.size.width, _swapchain.size.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _depthImage, _depthImageMemory);
+	_depthImageView = createImageView(_depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+}
+
+void VulkanRenderer::loadModel()
+{
+	tinyobj::attrib_t attrib;
+	std::vector<tinyobj::shape_t> shapes;
+	std::vector<tinyobj::material_t> materials;
+	std::string warn, err;
+
+	if (!tinyobj::LoadObj( &attrib, &shapes, &materials, &warn, &err, ( MODEL_PATH ).c_str() ))
+	{
+		throw std::runtime_error(warn + err);
+	}
+
+	std::unordered_map<Vertex, uint32_t> uniqueVertices{};
+
+	for (const auto& shape : shapes)
+	{
+		for (const auto& index : shape.mesh.indices)
+		{
+			Vertex vertex{};
+
+			vertex.pos = {
+				attrib.vertices[3 * index.vertex_index + 0],
+				attrib.vertices[3 * index.vertex_index + 1],
+				attrib.vertices[3 * index.vertex_index + 2]
+			};
+
+			vertex.texCoord = {
+				attrib.texcoords[2 * index.texcoord_index + 0],				
+				1.0f - attrib.texcoords[2 * index.texcoord_index + 1]			
+			};
+
+			vertex.color = { 1.0f, 1.0f, 1.0f };
+
+			if (uniqueVertices.count(vertex) == 0)
+			{
+				uniqueVertices[vertex] = static_cast<uint32_t>(_vertices.size());
+				_vertices.push_back(vertex);
+			}
+
+			_indices.push_back(uniqueVertices[vertex]);
+		}
+	}
+}
+
 void VulkanRenderer::recreateSwapchain()
 {
-	int width = 0, height = 0;
-	glfwGetFramebufferSize(_window, &width, &height);
-	while (width == 0 || height == 0) 
+	int w = 0, h = 0;
+	glfwGetFramebufferSize(_window, &w, &h);
+	while (w == 0 || h == 0) 
 	{
-		glfwGetFramebufferSize(_window, &width, &height);
+		glfwGetFramebufferSize(_window, &w, &h);
 		glfwWaitEvents();
 	}
 
@@ -211,10 +312,13 @@ void VulkanRenderer::createUniformBuffers()
 
 	_uniformBuffers.resize(MAX_FRAMES_IN_FLIGHT);
 	_uniformBuffersMemory.resize(MAX_FRAMES_IN_FLIGHT);
+	_uniformBuffersMapped.resize(MAX_FRAMES_IN_FLIGHT);
 
 	for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
 	{
 		createBuffer(bufferSize, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, _uniformBuffers[i], _uniformBuffersMemory[i]);
+
+		vkMapMemory(_logicalDevice, _uniformBuffersMemory[i], 0, bufferSize, 0, &_uniformBuffersMapped[i]);
 	}
 }
 
@@ -372,18 +476,18 @@ void VulkanRenderer::updateUniformBuffer(uint32_t currentImage)
 	UniformBufferObject ubo;
 
 	ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-	ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+	ubo.view = glm::lookAt(glm::vec3(2.0f, 1.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 	ubo.proj = glm::perspective(glm::radians(45.0f), _swapchain.size.width / (float)_swapchain.size.height, 0.1f, 10.0f);
 	// GLM은 기본적으로 OpenGL을 위해 설계됐고 vulkan에선 clip coordinate Y 좌표가 반전 시켜줘야한다.
 	ubo.proj[1][1] *= -1;
 
 	// UBO를 uniform buffer에 복사해준다. 
-	void* data;
-	vkMapMemory(_logicalDevice, _uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
+	//void* data;
+	//vkMapMemory(_logicalDevice, _uniformBuffersMemory[currentImage], 0, sizeof(ubo), 0, &data);
 
-	memcpy(data, &ubo, sizeof(ubo));
+	memcpy(_uniformBuffersMapped[currentImage], &ubo, sizeof(ubo));
 	
-	vkUnmapMemory(_logicalDevice, _uniformBuffersMemory[currentImage]);
+	//vkUnmapMemory(_logicalDevice, _uniformBuffersMemory[currentImage]);
 }
 
 
@@ -411,8 +515,13 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	renderPassInfo.renderArea.extent = _swapchain.size;
 	//clear color 값
 	VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
-	renderPassInfo.clearValueCount = 1;
-	renderPassInfo.pClearValues = &clearColor;
+
+	std::array<VkClearValue, 2> clearValues{};
+	clearValues[0].color = { {0.0f, 0.0f, 0.0f, 1.0f} };
+	clearValues[1].depthStencil = { 1.0f, 0 };
+
+	renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());;
+	renderPassInfo.pClearValues = clearValues.data();
 
 	// 이제 render pass가 시작 되었습니다. command들이 기록하는 모든 함수는 근들이 가지고 있는
 	// vkCmd 접두사로 알아볼 수 있습니다.
@@ -421,37 +530,37 @@ void VulkanRenderer::recordCommandBuffer(VkCommandBuffer commandBuffer, uint32_t
 	// 세번쨰 파라미터 : render pass내에서 drawing command가 어케 제공되는지 제어.
 	vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	//graphics pipeline 바인딩
-	vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphic.pipeline);
+		//graphics pipeline 바인딩
+		vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphic.pipeline);
 
 
-	VkViewport viewport{};
-	viewport.x = 0.0f;
-	viewport.y = 0.0f;
-	viewport.width = (float)_swapchain.size.width;
-	viewport.height = (float)_swapchain.size.height;
-	viewport.minDepth = 0.0f;
-	viewport.maxDepth = 1.0f;
-	vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+		VkViewport viewport{};
+		viewport.x = 0.0f;
+		viewport.y = 0.0f;
+		viewport.width = (float)_swapchain.size.width;
+		viewport.height = (float)_swapchain.size.height;
+		viewport.minDepth = 0.0f;
+		viewport.maxDepth = 1.0f;
+		vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
 
-	VkRect2D scissor{};
-	scissor.offset = { 0, 0 };
-	scissor.extent = _swapchain.size;
-	vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+		VkRect2D scissor{};
+		scissor.offset = { 0, 0 };
+		scissor.extent = _swapchain.size;
+		vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
 
-	//------------- Vertex Buffer binding 
-	VkBuffer vertexBuffers[] = { _vertexBuffer };
-	VkDeviceSize offsets[] = { 0 };
-	vkCmdBindVertexBuffers(commandBuffer, 0/*first binding*/, 1/*binding count*/, vertexBuffers, offsets);
+		//------------- Vertex Buffer binding 
+		VkBuffer vertexBuffers[] = { _vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(commandBuffer, 0/*first binding*/, 1/*binding count*/, vertexBuffers, offsets);
 
-	//------------- Index Buffer binding 
-	vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+		//------------- Index Buffer binding 
+		vkCmdBindIndexBuffer(commandBuffer, _indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
-	//------------- 각 프레임에 설정된 올바른 descriptor을 사용해서 shader descriptor에 실제 바인딩 하도록 함수를 업데이트 합니다
-	// vkCmdDrawIndexed 호출 전에 수행해야 합니다.
-	vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphic.pipelineLayout, 0, 1, &_graphic.descriptorSets[_currentFrame], 0, nullptr);
+		//------------- 각 프레임에 설정된 올바른 descriptor을 사용해서 shader descriptor에 실제 바인딩 하도록 함수를 업데이트 합니다
+		// vkCmdDrawIndexed 호출 전에 수행해야 합니다.
+		vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, _graphic.pipelineLayout, 0, 1, &_graphic.descriptorSets[_currentFrame], 0, nullptr);
 
-	vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size())/*index count*/, 1/*instance count*/, 0/*first index*/, 0/*vertex offset*/, 0/*first instance*/);
+		vkCmdDrawIndexed(commandBuffer, static_cast<uint32_t>(_indices.size())/*index count*/, 1/*instance count*/, 0/*first index*/, 0/*vertex offset*/, 0/*first instance*/);
 
 	vkCmdEndRenderPass(commandBuffer);
 
@@ -656,6 +765,11 @@ void VulkanRenderer::mainLoop()
 
 void VulkanRenderer::cleanupSwapchain()
 {
+	vkDestroyImageView(_logicalDevice, _depthImageView, nullptr);
+	vkDestroyImage(_logicalDevice, _depthImage, nullptr);
+	vkFreeMemory(_logicalDevice, _depthImageMemory, nullptr);
+
+
 	for (auto framebuffer : _swapchain.framebuffers)
 	{
 		vkDestroyFramebuffer(_logicalDevice, framebuffer, nullptr);
@@ -774,7 +888,7 @@ void VulkanRenderer::createSwapChainImageViews()
 
 	for (size_t i = 0; i < _swapchain.images.size(); i++)
 	{
-		_swapchain.imageViews[i] = createImageView(_swapchain.images[i], _swapchain.format);
+		_swapchain.imageViews[i] = createImageView(_swapchain.images[i], _swapchain.format, VK_IMAGE_ASPECT_COLOR_BIT);
 
 	}
 }
@@ -807,14 +921,17 @@ void VulkanRenderer::createFramebuffers()
 	// imageView 개수만큼 framebuffer 생성
 	for (size_t i = 0; i < _swapchain.imageViews.size(); i++)
 	{
-		VkImageView attachments[] = { _swapchain.imageViews[i] };
+		std::array<VkImageView, 2> attachments = { 
+			_swapchain.imageViews[i],
+			_depthImageView
+		};
 
 		VkFramebufferCreateInfo framebufferInfo{};
 		framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
 		//frame buffer가 호환되는 render pass 사용(동일한 개수와 타입의 attachment를 사용해야 한다는 의미)
 		framebufferInfo.renderPass = _renderPass;
-		framebufferInfo.attachmentCount = 1;
-		framebufferInfo.pAttachments = attachments;
+		framebufferInfo.attachmentCount = static_cast<uint32_t>(attachments.size());;
+		framebufferInfo.pAttachments = attachments.data();
 		framebufferInfo.width = _swapchain.size.width;
 		framebufferInfo.height = _swapchain.size.height;
 		framebufferInfo.layers = 1;
@@ -1097,9 +1214,10 @@ void VulkanRenderer::createComputePipeline()
 		throw std::runtime_error("failed to create synchronization objects for a frame!");
 	}
 	
+#if USE_COMPUTE
 	//---------------------------------------------------- build compute command bufefr
 	dispatchCompute(_compute.commandBuffers[0], texWidth / 16, texHeight, 1);
-
+#endif
 	//~
 
 	vkDestroyShaderModule(_logicalDevice, computeShaderModule, nullptr);
@@ -1110,8 +1228,8 @@ void VulkanRenderer::createComputePipeline()
 void VulkanRenderer::createGraphicsPipeline()
 {
 	//----------------------------------------------------------------------------------------------------------
-	auto vertShaderCode = readFile("C:\\workspace\\Github\\BKEngine\\Project\\res\\shader\\vert_image.spv");
-	auto fragShaderCode = readFile("C:\\workspace\\Github\\BKEngine\\Project\\res\\shader\\frag_image.spv");
+	auto vertShaderCode = readFile(VERT_PATH);
+	auto fragShaderCode = readFile(FRAG_PATH);
 
 
 	// 파이프라인에 코드를 전달하기 위해 VkShaderModule 오브젝트로 랩핑 해야함.
@@ -1201,6 +1319,14 @@ void VulkanRenderer::createGraphicsPipeline()
 	multisampling.sampleShadingEnable = VK_FALSE;
 	multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
+	VkPipelineDepthStencilStateCreateInfo depthStencil{};
+	depthStencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+	depthStencil.depthTestEnable = VK_TRUE;
+	depthStencil.depthWriteEnable = VK_TRUE;
+	depthStencil.depthCompareOp = VK_COMPARE_OP_LESS;
+	depthStencil.depthBoundsTestEnable = VK_FALSE;
+	depthStencil.stencilTestEnable = VK_FALSE;
+
 	// depth와 stencil buffer를 사용하기 위해 구성.
 	VkPipelineColorBlendAttachmentState colorBlendAttachment{};
 	colorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
@@ -1269,6 +1395,7 @@ void VulkanRenderer::createGraphicsPipeline()
 	pipelineInfo.pViewportState = &viewportState;
 	pipelineInfo.pRasterizationState = &rasterizer;
 	pipelineInfo.pMultisampleState = &multisampling;
+	pipelineInfo.pDepthStencilState = &depthStencil;
 	pipelineInfo.pColorBlendState = &colorBlending;
 	pipelineInfo.pDynamicState = &dynamicState;
 	pipelineInfo.layout = _graphic.pipelineLayout;
@@ -1317,10 +1444,26 @@ void VulkanRenderer::createRenderPass()
 	// 렌더링 후에 swap chain을 통해 image를 presentation 할 것이기 때문에 아래와 같이 설정.
 	colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
 
+
+	VkAttachmentDescription depthAttachment{};
+	depthAttachment.format = findDepthFormat();
+	depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+	depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+	depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+	depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+	depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 	//sub pass는 하나 이상의 attachment를 참조함.
 	VkAttachmentReference colorAttachmentRef{};
 	colorAttachmentRef.attachment = 0;
 	colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+	VkAttachmentReference depthAttachmentRef{};
+	depthAttachmentRef.attachment = 1;
+	depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 
 	// 단일 render pass는 여러개의 sub pass로 구성되는데 sub pass는 
 	// 이전 pass의 frame buffer 내용에 의존하는 후속 렌더링 작업입니다. (ex) post-processing)
@@ -1330,20 +1473,23 @@ void VulkanRenderer::createRenderPass()
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 	subpass.colorAttachmentCount = 1;
 	subpass.pColorAttachments = &colorAttachmentRef;
+	subpass.pDepthStencilAttachment = &depthAttachmentRef;
 
 	VkSubpassDependency dependency{};
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
 	dependency.dstSubpass = 0;
-	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+	dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
 	dependency.srcAccessMask = 0;
-	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
+	dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
+
+	std::array<VkAttachmentDescription, 2> attachments = { colorAttachment, depthAttachment };
 	// attachment 배열과 sub pass를 사용하여 VkRenderPassCreateInfo 구조체를 채우고 생성 가능!
 	VkRenderPassCreateInfo renderPassInfo{};
 	renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-	renderPassInfo.attachmentCount = 1;
-	renderPassInfo.pAttachments = &colorAttachment;
+	renderPassInfo.attachmentCount = static_cast<uint32_t>(attachments.size());;
+	renderPassInfo.pAttachments = attachments.data();
 	renderPassInfo.subpassCount = 1;
 	renderPassInfo.pSubpasses = &subpass;
 	renderPassInfo.dependencyCount = 1;
@@ -1411,14 +1557,17 @@ void VulkanRenderer::createSwapchain()
 		// 명시적인 소유권 전송 없이 이미지는 여러 Queue Family에서 사용 가능.
 		createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
 		createInfo.queueFamilyIndexCount = 2;
+#if USE_COMPUTE
 		if (indices.graphic.familyIndex != indices.compute.familyIndex)
 		{
 			createInfo.queueFamilyIndexCount = 3;
 		}
+#endif
 		createInfo.pQueueFamilyIndices = queueFamilyIndices;
 	}
 	else
 	{
+#if USE_COMPUTE
 		if (indices.graphic.familyIndex != indices.compute.familyIndex)
 		{
 			// 명시적인 소유권 전송 없이 이미지는 여러 Queue Family에서 사용 가능.
@@ -1427,6 +1576,7 @@ void VulkanRenderer::createSwapchain()
 			createInfo.pQueueFamilyIndices = queueFamilyIndices;
 		}
 		else
+#endif
 		{
 			// 이미지를 한 Queue family에서 소유하고 다른 Q.F에서 사용하려는 경우 명시적으로 소유권 전송.
 			// 이 옵션은 최상의 성능을 제공 함.
@@ -1784,10 +1934,10 @@ VkSampler VulkanRenderer::createTextureSampler(VkSamplerAddressMode u, VkSampler
 
 void VulkanRenderer::createTextureImageView()
 {
-	_textureImageView = createImageView(_textureImage, VK_FORMAT_R8G8B8A8_SRGB);
+	_textureImageView = createImageView(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format)
+VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
 {
 	VkImageViewCreateInfo viewInfo{
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// type
@@ -1802,7 +1952,7 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format)
 			VK_COMPONENT_SWIZZLE_B,
 			VK_COMPONENT_SWIZZLE_A},
 		VkImageSubresourceRange{
-			VK_IMAGE_ASPECT_COLOR_BIT,	// aspect mask
+			aspectFlags,	// aspect mask
 			0,							// base mip level
 			1,							// level count
 			0,							// base array layer
@@ -1847,8 +1997,8 @@ void VulkanRenderer::loadTextureImage(const std::string& path, VkImage& targetIm
 	//	VK_IMAGE_LAYOUT_UNDEFINED			// initial layout
 
 	// 이미지 생성
-	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, targetImage, targetTextureMemory,
-		VK_SHARING_MODE_EXCLUSIVE, 0, nullptr);
+	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, targetImage, targetTextureMemory);
+		//VK_SHARING_MODE_EXCLUSIVE, 0, nullptr);
 
 	// image layout 전환
 	transitionImageLayout(targetImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -1861,11 +2011,6 @@ void VulkanRenderer::loadTextureImage(const std::string& path, VkImage& targetIm
 
 	vkDestroyBuffer(_logicalDevice, _stagingBuffer, nullptr);
 	vkFreeMemory(_logicalDevice, _stagingBufferMemory, nullptr);
-}
-
-void VulkanRenderer::Test()
-{
-
 }
 
 void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
@@ -1962,7 +2107,7 @@ void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkIma
 }
 
 void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, 
-	VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices)
+	VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)//, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices)
 {
 	VkImageCreateInfo imageInfo
 	{
@@ -1977,9 +2122,9 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
 		VK_SAMPLE_COUNT_1_BIT,				// sample Count Flag Bits
 		tiling,								// Image Tiling
 		usage,								// Image Usage Flag
-		sharingMode,						// sharing Mode
-		queueIndexCount,					// queue family index count
-		queueIndices,						// queue family indices
+		VK_SHARING_MODE_EXCLUSIVE,						// sharing Mode
+		0,					// queue family index count
+		nullptr,						// queue family indices
 		VK_IMAGE_LAYOUT_UNDEFINED			// initial layout
 	};
 

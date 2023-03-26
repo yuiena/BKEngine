@@ -6,8 +6,7 @@
 #include <cstring>
 #include <iostream>
 
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+
 const std::string engineName = "BKEngine";
 
 #ifdef NDEBUG
