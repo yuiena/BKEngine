@@ -54,7 +54,7 @@ void VulkanRenderer::initVulkan()
 	createFramebuffers();
 
 	//---------------------------------------------------- load texture & create imagewView and sampler
-	loadTextureImage(TEXTURE_PATH, _textureImage, _textureImageMemory);
+	createTextureImage(TEXTURE_PATH, _textureImage, _textureImageMemory);
 	createTextureImageView();
 	_textureSampler = createTextureSampler(VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT, VK_SAMPLER_ADDRESS_MODE_REPEAT,
 		VK_COMPARE_OP_ALWAYS, VK_BORDER_COLOR_INT_OPAQUE_BLACK);
@@ -208,6 +208,19 @@ void VulkanRenderer::initVulkan()
 #endif 
 }
 
+
+void VulkanRenderer::setupDebugMessenger()
+{
+	if (!enableValidationLayers) return;
+
+	VkDebugUtilsMessengerCreateInfoEXT createInfo;
+	populateDebugMessengerCreateInfo(createInfo);
+
+	if (CreateDebugUtilsMessengerEXT(_instance, &createInfo, nullptr, &_debugMessenger) != VK_SUCCESS) {
+		throw std::runtime_error("failed to set up debug messenger!");
+	}
+}
+
 VkFormat VulkanRenderer::findSupportedFormat(const std::vector<VkFormat>& candidates, VkImageTiling tiling, VkFormatFeatureFlags features)
 {
 	for (VkFormat format : candidates) 
@@ -239,8 +252,18 @@ void VulkanRenderer::createDepthResources()
 {
 	VkFormat depthFormat = findDepthFormat();
 	
-	createImage(_swapchain.size.width, _swapchain.size.height, depthFormat, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, _depthImage, _depthImageMemory);
-	_depthImageView = createImageView(_depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+	createImage(
+		_swapchain.size.width, 
+		_swapchain.size.height, 
+		1,
+		depthFormat, 
+		VK_IMAGE_TILING_OPTIMAL, 
+		VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		_depthImage, 
+		_depthImageMemory);
+
+	_depthImageView = createImageView(_depthImage, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
 }
 
 void VulkanRenderer::loadModel()
@@ -662,7 +685,6 @@ void VulkanRenderer::drawFrame()
 	vkResetFences(_logicalDevice, 1, &_inFlightFences[_currentFrame]);
 
 	vkResetCommandBuffer(_graphic.commandBuffers[_currentFrame], /*VkCommandBufferResetFlagBits*/ 0);
-
 	recordCommandBuffer(_graphic.commandBuffers[_currentFrame], imageIndex);
 	
 
@@ -838,7 +860,7 @@ void VulkanRenderer::cleanup()
 
 	if (enableValidationLayers)
 	{
-		//DestroyDebugUtilsMessengerEXT(_instance, debugMessenger, nullptr);
+		DestroyDebugUtilsMessengerEXT(_instance, _debugMessenger, nullptr);
 	}
 	
 	vkDestroySurfaceKHR(_instance, _surface, nullptr);
@@ -888,7 +910,7 @@ void VulkanRenderer::createSwapChainImageViews()
 
 	for (size_t i = 0; i < _swapchain.images.size(); i++)
 	{
-		_swapchain.imageViews[i] = createImageView(_swapchain.images[i], _swapchain.format, VK_IMAGE_ASPECT_COLOR_BIT);
+		_swapchain.imageViews[i] = createImageView(_swapchain.images[i], _swapchain.format, VK_IMAGE_ASPECT_COLOR_BIT, _mipLevels);
 
 	}
 }
@@ -1913,13 +1935,13 @@ VkSampler VulkanRenderer::createTextureSampler(VkSamplerAddressMode u, VkSampler
 		u,										// addressModeU
 		v,										// addressModeV
 		w,										// addressModeW
-		0.0f,									// mip Lod Bias
+		0.0f,									// mipLodBias
 		VK_TRUE,								// anisotropy Enable
 		properties.limits.maxSamplerAnisotropy, // max Anisotropy
 		VK_FALSE,								// compare Enable
 		compareOp,								// compare OP
-		0.0f,									// min Lod
-		0.0f,									// max Lod
+		0.0f,									// min Lod //static_cast<float>(_mipLevels / 2)
+		static_cast<float>(_mipLevels),			// max Lod
 		borderColor,							// border color
 		VK_FALSE								// unnormalized coordinate - image의 texel을 지정하는데 사용할 좌표계 지정
 	};
@@ -1934,15 +1956,15 @@ VkSampler VulkanRenderer::createTextureSampler(VkSamplerAddressMode u, VkSampler
 
 void VulkanRenderer::createTextureImageView()
 {
-	_textureImageView = createImageView(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT);
+	_textureImageView = createImageView(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, _mipLevels);
 }
 
-VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags)
+VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
 	VkImageViewCreateInfo viewInfo{
 		VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,	// type
 		nullptr,									// nullptr
-		0,			// image view create flag
+		0,											// image view create flag
 		image,										// image
 		VK_IMAGE_VIEW_TYPE_2D,						// image view type
 		format,										// format
@@ -1952,9 +1974,9 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkIm
 			VK_COMPONENT_SWIZZLE_B,
 			VK_COMPONENT_SWIZZLE_A},
 		VkImageSubresourceRange{
-			aspectFlags,	// aspect mask
+			aspectFlags,				// aspect mask
 			0,							// base mip level
-			1,							// level count
+			mipLevels,					// level count
 			0,							// base array layer
 			1}							// layer count
 	};
@@ -1968,11 +1990,123 @@ VkImageView VulkanRenderer::createImageView(VkImage image, VkFormat format, VkIm
 	return imageView;
 }
 
-void VulkanRenderer::loadTextureImage(const std::string& path, VkImage& targetImage, VkDeviceMemory targetTextureMemory)
+void VulkanRenderer::generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels)
+{
+	// Check if image format supports linear blitting
+	VkFormatProperties formatProperties;
+	vkGetPhysicalDeviceFormatProperties(_physicalDevice, imageFormat, &formatProperties);
+
+	if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT)) 
+	{
+		throw std::runtime_error("texture image format does not support linear blitting!");
+	}
+
+	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
+
+	VkImageMemoryBarrier barrier{};
+	barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+	barrier.image = image;
+	barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+	barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	barrier.subresourceRange.baseArrayLayer = 0;
+	barrier.subresourceRange.layerCount = 1;
+	barrier.subresourceRange.levelCount = 1;
+
+	int32_t mipWidth = texWidth;
+	int32_t mipHeight = texHeight;
+
+	// 이 루프는 각 VkCmdBlitImage 명령을 기록한다.
+	for (uint32_t i = 1; i < mipLevels; i++) 
+	{
+		barrier.subresourceRange.baseMipLevel = i - 1;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+
+		vkCmdPipelineBarrier(commandBuffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, 
+			VK_PIPELINE_STAGE_TRANSFER_BIT, 
+			0,
+			0, 
+			nullptr,
+			0, 
+			nullptr,
+			1, 
+			&barrier);
+
+		VkImageBlit blit{};
+		// src [i - 1]
+		blit.srcOffsets[0] = { 0, 0, 0 }; // 데이터가 blit 될 3D 영역을 결정한다.
+		blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+		blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.srcSubresource.mipLevel = i - 1;
+		blit.srcSubresource.baseArrayLayer = 0;
+		blit.srcSubresource.layerCount = 1;
+		// dst [i] 
+		blit.dstOffsets[0] = { 0, 0, 0 }; // 데이터가 blit 될 3D 영역을 결정한다.
+		blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 }; // 이전 mipLevel의 절반 크기.
+		blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		blit.dstSubresource.mipLevel = i;
+		blit.dstSubresource.baseArrayLayer = 0;
+		blit.dstSubresource.layerCount = 1;
+
+		// blit cmd 기록
+		vkCmdBlitImage(commandBuffer,
+			image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			1, &blit,
+			VK_FILTER_LINEAR);
+
+		barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+		vkCmdPipelineBarrier(commandBuffer,
+			VK_PIPELINE_STAGE_TRANSFER_BIT, 
+			VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+			0,
+			0, 
+			nullptr,
+			0, 
+			nullptr,
+			1,
+			&barrier);
+
+		// 루프의 끝에서 mip 크기를 2로 나눈다. 
+		if (mipWidth > 1) mipWidth /= 2;
+		if (mipHeight > 1) mipHeight /= 2;
+	}
+
+	barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+	barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+	barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+	barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+
+	vkCmdPipelineBarrier(commandBuffer,
+		VK_PIPELINE_STAGE_TRANSFER_BIT, 
+		VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+		0,
+		0, 
+		nullptr,
+		0, 
+		nullptr,
+		1, 
+		&barrier);
+
+	endSingleTimeCommands(commandBuffer);
+}
+
+void VulkanRenderer::createTextureImage(const std::string& path, VkImage& targetImage, VkDeviceMemory targetTextureMemory)
 {
 	// STBI_rgb_alpha : alpha 채널이 없어도 이미지를 강제 로드 하므로 향후 다른 텍스처와의 일관성에 좋다.
 	stbi_uc* pixels = stbi_load(path.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 	VkDeviceSize imageSize = texWidth * texHeight * 4;
+
+	_mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(texWidth, texHeight)))) + 1;
 
 	if (!pixels) 
 	{
@@ -1997,20 +2131,32 @@ void VulkanRenderer::loadTextureImage(const std::string& path, VkImage& targetIm
 	//	VK_IMAGE_LAYOUT_UNDEFINED			// initial layout
 
 	// 이미지 생성
-	createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, targetImage, targetTextureMemory);
-		//VK_SHARING_MODE_EXCLUSIVE, 0, nullptr);
+	createImage(
+		texWidth, 
+		texHeight, 
+		_mipLevels, 
+		VK_FORMAT_R8G8B8A8_SRGB, 
+		VK_IMAGE_TILING_OPTIMAL, 
+		VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, 
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+		targetImage, 
+		targetTextureMemory);
 
 	// image layout 전환
-	transitionImageLayout(targetImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+	transitionImageLayout(targetImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, _mipLevels);
+	copyBufferToImage(_stagingBuffer, _textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+	//VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL으로의 기존 전환을 제거한다.
 
 	// staging buffer에 image copy
 	copyBufferToImage(_stagingBuffer, targetImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
 
 	//shader texture image에서 sampling을 시작하려면 shader access를 준비하기 위해 마지막 전환필요
-	transitionImageLayout(targetImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	transitionImageLayout(targetImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, _mipLevels);
 
 	vkDestroyBuffer(_logicalDevice, _stagingBuffer, nullptr);
 	vkFreeMemory(_logicalDevice, _stagingBufferMemory, nullptr);
+
+	generateMipmaps(_textureImage, VK_FORMAT_R8G8B8A8_SRGB, texWidth, texHeight, _mipLevels);
 }
 
 void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, uint32_t height)
@@ -2037,7 +2183,7 @@ void VulkanRenderer::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t 
 	endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout)
+void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels)
 {
 	VkCommandBuffer commandBuffer = beginSingleTimeCommands();
 
@@ -2057,7 +2203,7 @@ void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkIma
 		VkImageSubresourceRange{
 			VK_IMAGE_ASPECT_COLOR_BIT,	// aspect mask
 			0,							// base mip level
-			1,							// level count
+			mipLevels,					// level count
 			0,							// base array layer
 			1}							// layer count
 	};
@@ -2106,7 +2252,7 @@ void VulkanRenderer::transitionImageLayout(VkImage image, VkFormat format, VkIma
 	endSingleTimeCommands(commandBuffer);
 }
 
-void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, 
+void VulkanRenderer::createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, 
 	VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage& image, VkDeviceMemory& imageMemory)//, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices)
 {
 	VkImageCreateInfo imageInfo
@@ -2117,7 +2263,7 @@ void VulkanRenderer::createImage(uint32_t width, uint32_t height, VkFormat forma
 		VK_IMAGE_TYPE_2D,					// Image Type
 		format,								// Format
 		VkExtent3D{width, height, 1},		// exten3D
-		1,									// mipLevels
+		mipLevels,							// mipLevels
 		1,									// array Layers
 		VK_SAMPLE_COUNT_1_BIT,				// sample Count Flag Bits
 		tiling,								// Image Tiling

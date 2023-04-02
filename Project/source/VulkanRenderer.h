@@ -20,11 +20,6 @@
 #include <array>
 #include <unordered_map>
 
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, VkDebugUtilsMessageTypeFlagsEXT messageType, const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData, void* pUserData) {
-	std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
-
-	return VK_FALSE;
-}
 
 struct ImageTransition
 {
@@ -157,6 +152,9 @@ public:
 	bool framebufferResized = false;
 
 private:
+
+	void setupDebugMessenger();
+
 	/**
 	 * @brief window 초기화
 	 */
@@ -236,7 +234,7 @@ private:
 	/**
 	 * @brief Texture Image를 생성합니다.
 	 */
-	void loadTextureImage(const std::string& path, VkImage& targetImage, VkDeviceMemory targetTextureMemory);
+	void createTextureImage(const std::string& path, VkImage& targetImage, VkDeviceMemory targetTextureMemory);
 
 	/**
 	 * @brief Texture의 ImageView를 생성합니다.
@@ -252,19 +250,19 @@ private:
 	/**
 	 * @brief
 	 */
-	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags);
+	VkImageView createImageView(VkImage image, VkFormat format, VkImageAspectFlags aspectFlags, uint32_t mipLevels);
 
 	/**
 	 * @brief
 	 */
-	void createImage(uint32_t width, uint32_t height, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
+	void createImage(uint32_t width, uint32_t height, uint32_t mipLevels, VkFormat format, VkImageTiling tiling, VkImageUsageFlags usage, VkMemoryPropertyFlags properties,
 		VkImage& image, VkDeviceMemory& imageMemory);
 	//, VkSharingMode sharingMode, uint32_t queueIndexCount, uint32_t* queueIndices);
 
 	/**
 	 * @brief Image를 올바른 layout으로 전환한다.
 	 */
-	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout);
+	void transitionImageLayout(VkImage image, VkFormat format, VkImageLayout oldLayout, VkImageLayout newLayout, uint32_t mipLevels);
 
 	/**
 	 * @brief
@@ -351,6 +349,8 @@ private:
 	 */
 	void dispatchCompute(VkCommandBuffer command_buffer, uint32_t x_size, uint32_t y_size, uint32_t z_size);
 
+	void generateMipmaps(VkImage image, VkFormat imageFormat, int32_t texWidth, int32_t texHeight, uint32_t mipLevels);
+
 	void loadModel();
 
 	void mainLoop();
@@ -435,6 +435,7 @@ private:
 	VkBuffer _stagingBuffer;
 	VkDeviceMemory _stagingBufferMemory;
 
+	uint32_t _mipLevels;
 	VkImage _textureImage;
 	VkDeviceMemory _textureImageMemory;
 
@@ -446,7 +447,9 @@ private:
 	VkImageView _depthImageView;
 	//--------------------
 
-	
+
+	VkDebugUtilsMessengerEXT _debugMessenger;
+
 
 
 	GLFWwindow* _window;
